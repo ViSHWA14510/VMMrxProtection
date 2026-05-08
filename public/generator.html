@@ -171,7 +171,7 @@
     -webkit-tap-highlight-color: transparent; transition: border-color 0.15s;
   }
   .history-item:active { border-color: rgba(255,255,255,0.15); }
-  .history-short { font-family: 'Space Mono', monospace; font-size: 12px; color: #00b4ff; margin-bottom: 3px; }
+  .history-short { font-family: 'Space Mono', monospace; font-size: 12px; color: #00b4ff; margin-bottom: 3px; word-break: break-all; }
   .history-original { font-size: 12px; color: rgba(255,255,255,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Settings overlay */
@@ -306,8 +306,13 @@
 const $ = id => document.getElementById(id);
 
 function getConfig() {
-  const s = JSON.parse(localStorage.getItem('plg-settings') || '{}');
-  return { siteUrl: s.siteUrl || '', adminKey: s.adminKey || '' };
+  // FIX: Wrap in try/catch in case localStorage is disabled (private mode)
+  try {
+    const s = JSON.parse(localStorage.getItem('plg-settings') || '{}');
+    return { siteUrl: (s.siteUrl || '').replace(/\/$/, ''), adminKey: s.adminKey || '' };
+  } catch {
+    return { siteUrl: '', adminKey: '' };
+  }
 }
 
 function checkConfig() {
@@ -330,7 +335,14 @@ function saveSettings() {
   const url = $('siteUrl').value.trim().replace(/\/$/, '');
   const key = $('adminKey').value.trim();
   if (!url || !key) { showToast('Fill in both fields'); return; }
-  localStorage.setItem('plg-settings', JSON.stringify({ siteUrl: url, adminKey: key }));
+  // FIX: Validate site URL format before saving
+  try { new URL(url); } catch { showToast('Site URL is not valid'); return; }
+  try {
+    localStorage.setItem('plg-settings', JSON.stringify({ siteUrl: url, adminKey: key }));
+  } catch {
+    showToast('Could not save — storage may be disabled');
+    return;
+  }
   $('overlay').classList.remove('open');
   checkConfig();
   showToast('Saved ✓');
@@ -339,7 +351,11 @@ function saveSettings() {
 async function generate() {
   const url = $('urlInput').value.trim();
   if (!url) { showErr('Paste a URL first'); return; }
-  if (!url.startsWith('http')) { showErr('URL must start with http:// or https://'); return; }
+  // FIX: Stricter URL check
+  try { new URL(url); } catch { showErr('Please enter a valid URL including http:// or https://'); return; }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    showErr('URL must start with http:// or https://'); return;
+  }
 
   const c = getConfig();
   if (!c.siteUrl || !c.adminKey) {
@@ -353,12 +369,29 @@ async function generate() {
   try {
     const res = await fetch(`${c.siteUrl}/api/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': c.adminKey },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': c.adminKey
+      },
       body: JSON.stringify({ url })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to generate link');
+
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error('Server returned an unexpected response. Check your Vercel URL.');
+    }
+
+    if (res.status === 401) throw new Error('Wrong Admin Key. Check Settings.');
+    if (res.status === 400) throw new Error(data.error || 'Invalid URL');
+    if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
     if (!data.success) throw new Error(data.error || 'Failed to generate link');
+
+    // FIX: Validate returned URLs exist before showing
+    if (!data.protected_url || !data.short_url) {
+      throw new Error('Server returned incomplete data');
+    }
 
     $('shortLink').textContent = data.short_url;
     $('protectedLink').textContent = data.protected_url;
@@ -381,29 +414,42 @@ function setLoading(on) {
 }
 
 function showErr(msg) {
-  const b = $('errorBox'); b.textContent = msg; b.classList.add('show');
+  const b = $('errorBox'); b.textContent = '⚠ ' + msg; b.classList.add('show');
 }
 
 function copyText(id) {
   const text = $(id).textContent;
+  if (!text || text === '—') return;
   navigator.clipboard.writeText(text)
     .then(() => showToast('Copied!'))
     .catch(() => {
-      const el = document.createElement('textarea');
-      el.value = text; document.body.appendChild(el);
-      el.select(); document.execCommand('copy'); document.body.removeChild(el);
-      showToast('Copied!');
+      // FIX: Fallback for browsers without clipboard API
+      try {
+        const el = document.createElement('textarea');
+        el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+        document.body.appendChild(el);
+        el.select(); document.execCommand('copy'); document.body.removeChild(el);
+        showToast('Copied!');
+      } catch {
+        showToast('Copy failed — please copy manually');
+      }
     });
 }
 
 function shareIt() {
   const url = $('protectedLink').textContent;
-  if (navigator.share) { navigator.share({ title: 'Protected Link', url }); }
-  else { copyText('protectedLink'); }
+  if (!url || url === '—') return;
+  if (navigator.share) {
+    navigator.share({ title: 'Protected Link', url }).catch(() => copyText('protectedLink'));
+  } else {
+    copyText('protectedLink');
+  }
 }
 
 function newLink() {
   $('resultCard').classList.remove('show');
+  $('errorBox').classList.remove('show');
+  $('urlInput').value = '';
   $('urlInput').focus();
 }
 
@@ -413,26 +459,47 @@ function showToast(msg) {
 }
 
 function saveHistory(item) {
-  const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
-  h.unshift({ ...item, time: Date.now() });
-  localStorage.setItem('plg-history', JSON.stringify(h.slice(0, 10)));
+  try {
+    const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
+    // FIX: Avoid duplicate entries for same URL
+    const filtered = h.filter(i => i.original !== item.original);
+    filtered.unshift({ ...item, time: Date.now() });
+    localStorage.setItem('plg-history', JSON.stringify(filtered.slice(0, 10)));
+  } catch { /* storage unavailable */ }
 }
 
 function renderHistory() {
-  const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
-  if (!h.length) return;
-  $('historySection').style.display = 'block';
-  $('historyList').innerHTML = h.map(item => `
-    <div class="history-item" onclick="showResult('${encodeURIComponent(item.shortUrl)}','${encodeURIComponent(item.protectedUrl)}')">
-      <div class="history-short">${item.protectedUrl}</div>
-      <div class="history-original">${item.original}</div>
-    </div>
-  `).join('');
+  try {
+    const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
+    if (!h.length) return;
+    $('historySection').style.display = 'block';
+    // FIX: Use data attributes instead of inline onclick with encodeURIComponent to avoid XSS
+    $('historyList').innerHTML = h.map((item, idx) =>
+      `<div class="history-item" data-idx="${idx}">
+        <div class="history-short">${escHtml(item.protectedUrl)}</div>
+        <div class="history-original">${escHtml(item.original)}</div>
+      </div>`
+    ).join('');
+    // Attach events safely
+    $('historyList').querySelectorAll('.history-item').forEach((el, idx) => {
+      el.addEventListener('click', () => {
+        const item = h[idx];
+        if (item) showResult(item.shortUrl, item.protectedUrl);
+      });
+    });
+  } catch { /* storage unavailable */ }
+}
+
+// FIX: HTML escape helper to prevent XSS in history rendering
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function showResult(s, p) {
-  $('shortLink').textContent = decodeURIComponent(s);
-  $('protectedLink').textContent = decodeURIComponent(p);
+  $('shortLink').textContent = s;
+  $('protectedLink').textContent = p;
   $('resultCard').classList.add('show');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
