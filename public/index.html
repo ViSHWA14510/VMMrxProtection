@@ -3,164 +3,667 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Verify to Continue</title>
+<title>Verify to Continue — VM-MRX-PROTECTION</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet"/>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-font-family: 'Syne', sans-serif;
-background: #050b14;
-min-height: 100vh;
-display: flex; flex-direction: column;
-align-items: center; justify-content: center;
-padding: 2rem 1rem; position: relative; overflow: hidden;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --b0:#00040f;
+  --b1:#000d1f;
+  --b2:#001433;
+  --b3:#001f4d;
+  --b4:#003080;
+  --b5:#0050cc;
+  --b6:#1a72ff;
+  --b7:#4d96ff;
+  --b8:#80b8ff;
+  --b9:#b3d4ff;
+  --ba:#e0eeff;
+  --cyan:#00d4ff;
+  --glow: 0 0 20px rgba(26,114,255,0.4), 0 0 60px rgba(26,114,255,0.15);
 }
-.grid-bg {
-position: fixed; inset: 0;
-background-image:
-linear-gradient(rgba(0,180,255,0.04) 1px, transparent 1px),
-linear-gradient(90deg, rgba(0,180,255,0.04) 1px, transparent 1px);
-background-size: 40px 40px; pointer-events: none;
+
+html,body{height:100%;background:var(--b0);color:var(--b8);font-family:'Exo 2',sans-serif;overflow:hidden}
+
+body::before{
+  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,1 58,16 58,46 30,61 2,46 2,16' fill='none' stroke='rgba(26,114,255,0.06)' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size:60px 52px;
 }
-.glow {
-position: fixed; width: 600px; height: 600px; border-radius: 50%;
-background: radial-gradient(circle, rgba(0,180,255,0.07) 0%, transparent 70%);
-top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
+
+body::after{
+  content:'';position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.12) 4px);
+  animation:scanMove 6s linear infinite;
 }
-.status-bar {
-display: flex; align-items: center; gap: 6px;
-background: rgba(0,180,255,0.08); border: 1px solid rgba(0,180,255,0.25);
-border-radius: 20px; padding: 4px 14px; margin-bottom: 2rem;
-font-family: 'Space Mono', monospace; font-size: 11px; color: #00b4ff;
-letter-spacing: 0.05em; position: relative; z-index: 2;
+@keyframes scanMove{from{background-position:0 0}to{background-position:0 48px}}
+
+.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:1;animation:orbDrift 15s ease-in-out infinite alternate}
+.orb1{width:500px;height:500px;background:rgba(0,80,204,0.2);top:-150px;left:-150px;animation-delay:0s}
+.orb2{width:400px;height:400px;background:rgba(0,212,255,0.08);bottom:-100px;right:-100px;animation-delay:5s}
+.orb3{width:300px;height:300px;background:rgba(26,114,255,0.12);top:30%;left:55%;animation-delay:2s}
+@keyframes orbDrift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.1)}}
+
+.scene{position:relative;z-index:10;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+
+.card{
+  width:100%;max-width:500px;
+  background:rgba(0,13,31,0.88);
+  border:1px solid rgba(26,114,255,0.3);
+  border-radius:6px;
+  padding:44px 40px 40px;
+  position:relative;overflow:hidden;
+  backdrop-filter:blur(24px);
+  box-shadow:var(--glow),inset 0 1px 0 rgba(77,150,255,0.1);
+  animation:cardRise 0.7s cubic-bezier(0.16,1,0.3,1) both;
 }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: #00b4ff; animation: blink 1.5s infinite; }
-@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
-.card {
-background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-border-radius: 16px; padding: 2.5rem 2rem;
-max-width: 420px; width: 100%; text-align: center;
-position: relative; z-index: 2;
+@keyframes cardRise{from{opacity:0;transform:translateY(30px) scale(0.96)}to{opacity:1;transform:none}}
+
+.card::before{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--b7),transparent);
+  animation:beamSweep 3s ease-in-out infinite;
 }
-.shield-icon {
-width: 64px; height: 64px; background: rgba(0,180,255,0.08);
-border: 1px solid rgba(0,180,255,0.25); border-radius: 16px;
-display: flex; align-items: center; justify-content: center;
-margin: 0 auto 1.5rem; font-size: 28px;
+@keyframes beamSweep{0%{left:-100%}60%,100%{left:100%}}
+
+.corner{position:absolute;width:16px;height:16px;border-color:var(--b6);border-style:solid}
+.corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+
+.hbar{
+  display:flex;align-items:center;gap:8px;margin-bottom:32px;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.18em;
 }
-h1 { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
-.subtitle { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 2rem; line-height: 1.6; font-family: 'Space Mono', monospace; }
-.badges { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
-.badge {
-display: flex; align-items: center; gap: 5px;
-background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-border-radius: 20px; padding: 4px 12px;
-font-size: 11px; color: rgba(255,255,255,0.6); font-family: 'Space Mono', monospace;
+.hbar-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:blip 1.8s ease-in-out infinite}
+@keyframes blip{0%,100%{opacity:1;box-shadow:0 0 6px var(--cyan)}50%{opacity:0.25;box-shadow:none}}
+.hbar-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(26,114,255,0.3),transparent)}
+#clock{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.1em}
+
+.shield-area{display:flex;justify-content:center;margin-bottom:24px}
+.ring-outer{
+  width:100px;height:100px;border-radius:50%;
+  border:1px solid rgba(26,114,255,0.2);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  animation:ringPulse 3s ease-in-out infinite;
 }
-.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: #00b4ff; }
-.turnstile-wrapper { display: flex; justify-content: center; margin-bottom: 1.5rem; }
-.btn {
-width: 100%; padding: 14px;
-background: linear-gradient(135deg, #00b4ff, #0077cc);
-border: none; border-radius: 10px; color: #fff;
-font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
-cursor: pointer; transition: opacity 0.2s, transform 0.1s;
-letter-spacing: 0.02em; margin-bottom: 1.25rem;
+@keyframes ringPulse{0%,100%{box-shadow:0 0 0 0 rgba(26,114,255,0)}50%{box-shadow:0 0 0 16px rgba(26,114,255,0.05)}}
+.ring-outer::before{
+  content:'';position:absolute;inset:-12px;border-radius:50%;
+  border:1px dashed rgba(26,114,255,0.18);
+  animation:rotateSlow 25s linear infinite;
 }
-.btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn:not(:disabled):hover { opacity: 0.9; }
-.btn:not(:disabled):active { transform: scale(0.98); }
-.error-msg {
-background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.2);
-border-radius: 8px; padding: 10px 14px; font-size: 12px;
-font-family: 'Space Mono', monospace; color: #ff6060;
-margin-bottom: 1rem; display: none;
+.ring-outer::after{
+  content:'';position:absolute;inset:-22px;border-radius:50%;
+  border:1px solid rgba(0,212,255,0.07);
+  animation:rotateSlow 40s linear infinite reverse;
 }
-.security-note { font-size: 11px; font-family: 'Space Mono', monospace; color: rgba(255,255,255,0.25); }
-.success-view { display: none; flex-direction: column; align-items: center; gap: 0.75rem; }
-.success-icon {
-width: 64px; height: 64px; background: rgba(0,180,255,0.12);
-border: 2px solid #00b4ff; border-radius: 50%;
-display: flex; align-items: center; justify-content: center;
-font-size: 28px; animation: pop 0.3s ease;
+@keyframes rotateSlow{to{transform:rotate(360deg)}}
+.shield-svg{width:48px;height:48px;filter:drop-shadow(0 0 8px rgba(26,114,255,0.6))}
+
+.title{
+  text-align:center;font-family:'Orbitron',monospace;
+  font-size:22px;font-weight:900;letter-spacing:0.08em;
+  color:var(--b8);text-transform:uppercase;margin-bottom:6px;
+  animation:titleGlow 3s ease-in-out infinite alternate;
 }
-@keyframes pop { 0%{transform:scale(0.5);opacity:0}80%{transform:scale(1.1)}100%{transform:scale(1);opacity:1} }
-.success-title { font-size: 20px; font-weight: 800; color: #fff; }
-.success-sub { font-size: 12px; font-family: 'Space Mono', monospace; color: rgba(255,255,255,0.4); }
-.progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
-.progress-fill { height: 100%; background: #00b4ff; width: 0%; border-radius: 2px; transition: width 3s linear; }
-.footer { margin-top: 1.5rem; font-size: 11px; font-family: 'Space Mono', monospace; color: rgba(255,255,255,0.2); z-index: 2; position: relative; }
+@keyframes titleGlow{from{text-shadow:0 0 10px rgba(77,150,255,0.3)}to{text-shadow:0 0 30px rgba(77,150,255,0.7),0 0 60px rgba(26,114,255,0.3)}}
+.title span{color:var(--cyan)}
+
+.subtitle{
+  text-align:center;font-family:'Orbitron',monospace;font-size:10px;
+  color:var(--b5);letter-spacing:0.22em;margin-bottom:32px;
+}
+
+.badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+.badge{
+  display:flex;align-items:center;gap:6px;padding:5px 14px;
+  border:1px solid rgba(26,114,255,0.25);border-radius:2px;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);
+  letter-spacing:0.12em;background:rgba(0,32,80,0.5);
+  animation:badgeFade 0.6s ease both;
+}
+.badge:nth-child(2){animation-delay:0.1s}.badge:nth-child(3){animation-delay:0.2s}
+@keyframes badgeFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.badge-pip{width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+
+.checks-idle{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.ci{
+  display:flex;align-items:center;gap:12px;padding:10px 14px;
+  border:1px solid rgba(26,114,255,0.12);border-radius:2px;
+  background:rgba(0,20,51,0.5);font-size:13px;color:var(--b6);
+  letter-spacing:0.04em;opacity:0.6;
+}
+.ci-num{
+  width:20px;height:20px;border:1px solid rgba(26,114,255,0.3);border-radius:1px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);flex-shrink:0;
+}
+
+#progressWrap{display:none;flex-direction:column;gap:0}
+
+.proc-step{
+  display:flex;align-items:center;gap:14px;padding:12px 14px;
+  border:1px solid rgba(26,114,255,0.08);border-radius:2px;
+  background:rgba(0,20,51,0.4);font-size:13px;color:var(--b5);
+  letter-spacing:0.03em;margin-bottom:8px;
+  transition:border-color 0.4s,color 0.4s,background 0.4s;
+}
+.proc-step.active{border-color:rgba(0,212,255,0.35);color:var(--b8);background:rgba(0,32,80,0.6)}
+.proc-step.done{border-color:rgba(26,114,255,0.4);color:var(--b8)}
+.ps-icon{
+  width:22px;height:22px;border:1px solid rgba(26,114,255,0.25);border-radius:2px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);flex-shrink:0;
+  transition:background 0.3s,border-color 0.3s;
+}
+.proc-step.active .ps-icon{border-color:var(--cyan);animation:iconBlink 0.5s alternate infinite}
+.proc-step.done .ps-icon{background:var(--b5);border-color:var(--b5);color:var(--ba)}
+@keyframes iconBlink{from{opacity:0.4}to{opacity:1}}
+
+.pbar-wrap{margin-bottom:16px}
+.pbar-labels{display:flex;justify-content:space-between;font-family:'Orbitron',monospace;font-size:10px;color:var(--b5);letter-spacing:0.1em;margin-bottom:6px}
+.pbar-track{width:100%;height:4px;background:var(--b2);border-radius:2px;overflow:hidden}
+.pbar-fill{height:100%;width:0%;border-radius:2px;transition:width 0.08s linear;
+  background:linear-gradient(90deg,var(--b4),var(--cyan));
+  box-shadow:0 0 10px rgba(0,212,255,0.6);
+}
+
+#successWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px;animation:successIn 0.5s ease both}
+@keyframes successIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+.s-icon{
+  width:72px;height:72px;border-radius:50%;
+  border:2px solid var(--cyan);
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;color:var(--cyan);
+  position:relative;
+  animation:sGlow 1.5s ease-in-out infinite alternate;
+}
+.s-icon::before{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  border:1px solid rgba(0,212,255,0.2);animation:rotateSlow 8s linear infinite;
+}
+@keyframes sGlow{from{box-shadow:0 0 16px rgba(0,212,255,0.3)}to{box-shadow:0 0 40px rgba(0,212,255,0.7),0 0 80px rgba(26,114,255,0.3)}}
+
+.s-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;letter-spacing:0.15em;color:var(--ba);text-transform:uppercase;text-shadow:0 0 20px rgba(77,150,255,0.5)}
+.s-sub{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.2em}
+
+.redir-track{width:100%;height:2px;background:var(--b2);border-radius:2px;overflow:hidden;margin-top:4px}
+.redir-fill{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,var(--b5),var(--cyan));box-shadow:0 0 8px var(--cyan);animation:redirAnim 3.2s linear 0.4s forwards}
+@keyframes redirAnim{to{width:100%}}
+
+.manual-link{display:none;font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);text-decoration:none;letter-spacing:0.12em;margin-top:4px;transition:color 0.2s}
+.manual-link:hover{color:var(--cyan)}
+
+.footer{
+  display:flex;align-items:center;justify-content:space-between;
+  border-top:1px solid rgba(26,114,255,0.12);padding-top:16px;margin-top:24px;
+  font-family:'Orbitron',monospace;font-size:8px;color:var(--b4);letter-spacing:0.14em;
+}
+.footer em{color:var(--b5);font-style:normal}
+.footer-sep{color:rgba(26,114,255,0.2)}
+
+#stars,#particles{position:fixed;inset:0;z-index:1;pointer-events:none}
+#particles{opacity:0.5}
+
+/* ── Countdown Timer ── */
+.countdown-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  margin-bottom:28px;
+}
+.countdown-label{
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);
+  letter-spacing:0.22em;text-transform:uppercase;
+}
+.countdown-ring-wrap{position:relative;width:110px;height:110px}
+.countdown-svg{width:110px;height:110px;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:rgba(26,114,255,0.1);stroke-width:4}
+.ring-prog{
+  fill:none;stroke:url(#cgrad);stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:314;stroke-dashoffset:0;
+  transition:stroke-dashoffset 1s linear;
+}
+.ring-urgent{stroke:#ff4466}
+.countdown-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.countdown-num{
+  font-family:'Orbitron',monospace;font-size:30px;font-weight:900;
+  color:var(--b8);line-height:1;
+  animation:numGlow 1s ease-in-out infinite alternate;
+}
+.countdown-num.urgent{color:#ff6680;animation:numUrgent 0.5s ease-in-out infinite alternate}
+@keyframes numGlow{from{text-shadow:0 0 8px rgba(77,150,255,0.4)}to{text-shadow:0 0 20px rgba(0,212,255,0.8)}}
+@keyframes numUrgent{from{text-shadow:0 0 8px rgba(255,70,100,0.4)}to{text-shadow:0 0 24px rgba(255,70,100,1)}}
+.countdown-sec{font-family:'Orbitron',monospace;font-size:8px;color:var(--b5);letter-spacing:0.2em;margin-top:2px}
+.countdown-expired{font-family:'Orbitron',monospace;font-size:11px;color:#ff6680;letter-spacing:0.15em;display:none}
+
+/* ── Cloudflare Turnstile ── */
+.turnstile-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  padding:18px;margin-bottom:8px;
+  border:1px solid rgba(26,114,255,0.2);border-radius:4px;
+  background:rgba(0,20,51,0.5);
+}
+.turnstile-label{
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);
+  letter-spacing:0.2em;text-transform:uppercase;
+}
+.cf-turnstile{
+  border-radius:3px;overflow:hidden;
+  box-shadow:0 0 20px rgba(26,114,255,0.2);
+}
+.turnstile-status{
+  font-family:'Orbitron',monospace;font-size:9px;
+  color:var(--b5);letter-spacing:0.14em;
+  transition:color 0.3s;
+}
+.turnstile-status.success{color:var(--cyan);text-shadow:0 0 8px rgba(0,212,255,0.6)}
+.turnstile-status.error{color:#ff6680}
+
+/* ── Error State ── */
+#errorWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px}
+.err-icon{
+  width:72px;height:72px;border-radius:50%;
+  border:2px solid #ff4466;
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;color:#ff4466;
+}
+.err-title{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;letter-spacing:0.1em;color:#ff6680;text-transform:uppercase}
+.err-msg{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.14em;text-align:center;max-width:300px;line-height:1.6}
+.btn-retry{
+  padding:10px 28px;border:1px solid rgba(26,114,255,0.4);border-radius:3px;
+  background:rgba(0,32,80,0.5);color:var(--b8);
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.18em;
+  cursor:pointer;transition:all 0.2s;text-transform:uppercase;
+}
+.btn-retry:hover{border-color:var(--cyan);color:var(--cyan)}
 </style>
 </head>
 <body>
-<div class="grid-bg"></div>
-<div class="glow"></div>
-<div class="status-bar"><div class="dot"></div>VERIFICATION REQUIRED</div>
-<div class="card">
-<div id="defaultView">
-<div class="shield-icon">🛡️</div>
-      <h1>ʜᴜᴍᴀɴ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ..!</h1>
-<p class="subtitle">ᴠᴇʀɪꜰʏ ʏᴏᴜ'ʀᴇ ʜᴜᴍᴀɴ ᴛᴏ ᴀᴄᴄᴇꜱꜱ ᴛʜɪꜱ ʟɪɴᴋ...</p>
-<div class="badges">
-<div class="badge"><div class="badge-dot"></div>🔐 𝑬𝑵𝑪𝑹𝒀𝑷𝑻𝑬𝑫 🔐</div>
-<div class="badge"><div class="badge-dot"></div>🤖 𝑩𝑶𝑻 𝑷𝑹𝑬𝑽𝑬𝑵𝑻𝑰𝑶𝑵 🤖</div>
-<div class="badge"><div class="badge-dot"></div>🚀 𝑭𝑨𝑺𝑻 𝑹𝑬𝑫𝑰𝑹𝑬𝑪𝑻 🚀</div>
+
+<canvas id="stars"></canvas>
+<canvas id="particles"></canvas>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="scene">
+  <div class="card">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="hbar">
+      <div class="hbar-dot"></div>
+      VM-MRX PROTECTION
+      <div class="hbar-line"></div>
+      <span id="clock"></span>
+    </div>
+
+    <div class="shield-area">
+      <div class="ring-outer">
+        <svg class="shield-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#1a72ff"/>
+              <stop offset="100%" stop-color="#00d4ff"/>
+            </linearGradient>
+          </defs>
+          <path d="M26 4L9 10V23C9 33.5 16.8 43.2 26 45C35.2 43.2 43 33.5 43 23V10L26 4Z"
+            stroke="url(#sg)" stroke-width="1.5" fill="rgba(0,80,204,0.15)" stroke-linejoin="round"/>
+          <path d="M17 25.5L23.5 32L35 19" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="title">Verification <span>Required</span></div>
+    <div class="subtitle">ANTI-BOT PROTECTION ACTIVE</div>
+
+    <div class="badges">
+      <div class="badge"><div class="badge-pip"></div>ENCRYPTED</div>
+      <div class="badge"><div class="badge-pip"></div>BOT PREVENTION</div>
+      <div class="badge"><div class="badge-pip"></div>FAST REDIRECT</div>
+    </div>
+
+    <!-- COUNTDOWN TIMER -->
+    <div class="countdown-wrap" id="countdownWrap">
+      <div class="countdown-label">&#9201; Session expires in</div>
+      <div class="countdown-ring-wrap">
+        <svg class="countdown-svg" viewBox="0 0 110 110">
+          <defs>
+            <linearGradient id="cgrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#1a72ff"/>
+              <stop offset="100%" stop-color="#00d4ff"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="55" cy="55" r="50"/>
+          <circle class="ring-prog" id="ringProg" cx="55" cy="55" r="50"/>
+        </svg>
+        <div class="countdown-center">
+          <div class="countdown-num" id="cdNum">30</div>
+          <div class="countdown-sec">SEC</div>
+        </div>
+      </div>
+      <div class="countdown-expired" id="cdExpired">&#9888; SESSION EXPIRED — REFRESH PAGE</div>
+    </div>
+
+    <!-- INITIAL STATE (Turnstile) -->
+    <div id="initialState">
+      <div class="turnstile-wrap">
+        <div class="turnstile-label">&#128274; HUMAN VERIFICATION REQUIRED</div>
+        <div class="cf-turnstile"
+          data-sitekey="0x4AAAAAADLmvhgPDLpQcUTv"
+          data-theme="dark"
+          data-callback="onTurnstileSuccess"
+          data-error-callback="onTurnstileError"
+          data-expired-callback="onTurnstileExpired"
+          data-size="normal">
+        </div>
+        <div class="turnstile-status" id="cfStatus">Waiting for verification...</div>
+      </div>
+      <div class="checks-idle">
+        <div class="ci"><div class="ci-num">01</div>Check browser fingerprint</div>
+        <div class="ci"><div class="ci-num">02</div>Validate human presence</div>
+        <div class="ci"><div class="ci-num">03</div>Generate secure redirect token</div>
+      </div>
+    </div>
+
+    <!-- PROGRESS STATE -->
+    <div id="progressWrap">
+      <div class="pbar-wrap">
+        <div class="pbar-labels"><span id="pLabel">INITIALIZING...</span><span id="pPct">0%</span></div>
+        <div class="pbar-track"><div class="pbar-fill" id="pFill"></div></div>
+      </div>
+      <div class="proc-step" id="s1"><div class="ps-icon" id="i1">01</div>Check browser fingerprint</div>
+      <div class="proc-step" id="s2"><div class="ps-icon" id="i2">02</div>Validate human presence</div>
+      <div class="proc-step" id="s3"><div class="ps-icon" id="i3">03</div>Generate secure redirect token</div>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div id="successWrap">
+      <div class="s-icon">&#10003;</div>
+      <div class="s-title">Verified!</div>
+      <div class="s-sub">REDIRECTING NOW... &#128640;</div>
+      <div class="redir-track"><div class="redir-fill"></div></div>
+      <a class="manual-link" id="mLink" href="#">&#8594; Click here if not redirected</a>
+    </div>
+
+    <!-- ERROR STATE -->
+    <div id="errorWrap">
+      <div class="err-icon">&#10007;</div>
+      <div class="err-title">Verification Failed</div>
+      <div class="err-msg" id="errMsg">Something went wrong. Please try again.</div>
+      <button class="btn-retry" onclick="retryVerification()">&#8635; RETRY</button>
+    </div>
+
+    <div class="footer">
+      <em>VM-MRX</em>
+      <span class="footer-sep">///</span>
+      <em>PROTECTION v2.0</em>
+      <span class="footer-sep">///</span>
+      <em>SHIELD ACTIVE</em>
+    </div>
+  </div>
 </div>
-<div id="errorMsg" class="error-msg">VERIFICATION FAILED. PLEASE TRY AGAIN...</div>
-<div class="turnstile-wrapper">
-<div class="cf-turnstile"
-data-sitekey="0x4AAAAAADH1B2TXIqfqar1f"
-data-callback="onVerified"
-data-expired-callback="onExpired"
-data-theme="dark">
-</div>
-</div>
-<button class="btn" id="continueBtn" disabled onclick="handleContinue()">𝐂𝐨𝐧𝐭𝐢𝐧𝐮𝐞 𝐭𝐨 𝐋𝐢𝐧𝐤 →</button>
-<div class="security-note">🔒 ​🇵​​🇷​​🇴​​🇹​​🇪​​🇨​​🇹​​🇪​​🇩​ · ​🇧​​🇴​​🇹​ ​🇵​​🇷​​🇪​​🇻​​🇪​​🇳​​🇹​​🇮​​🇴​​🇳​ ​🇦​​🇨​​🇹​​🇮​​🇻​​🇪​ </div>
-</div>
-<div class="success-view" id="successView">
-<div class="success-icon">✓</div>
-<div class="success-title">Verified!</div>
-<div class="success-sub">​🇷​​🇪​​🇩​​🇮​​🇷​​🇪​​🇨​​🇹​​🇮​​🇳​​🇬​ ​🇾​​🇴​​🇺​ ​🇳​​🇴​​🇼​...🚀</div>
-<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-</div>
-</div>
-<div class="footer">💪 ​🇦​​🇳​​🇹​​🇮​-​🇧​​🇴​​🇹​ ​🇵​​🇷​​🇴​​🇹​​🇪​​🇨​​🇹​​🇮​​🇴​​🇳​ 🔐</div>
+
 <script>
-const pathParts = window.location.pathname.split('/');
-const token = pathParts[pathParts.length - 1];
-let cfToken = null;
-function onVerified(t) { cfToken = t; document.getElementById('continueBtn').disabled = false; }
-function onExpired() { cfToken = null; document.getElementById('continueBtn').disabled = true; }
-async function handleContinue() {
-if (!cfToken) return;
-const btn = document.getElementById('continueBtn');
-btn.disabled = true; btn.textContent = '𝗩𝗘𝗥𝗜𝗙𝗬𝗜𝗡𝗚...';
-document.getElementById('errorMsg').style.display = 'none';
-try {
-const res = await fetch('/api/verify', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ token, cfToken })
-});
-const data = await res.json();
-if (data.success && data.url) {
-document.getElementById('defaultView').style.display = 'none';
-document.getElementById('successView').style.display = 'flex';
-setTimeout(() => { document.getElementById('progressFill').style.width = '100%'; }, 100);
-setTimeout(() => { window.location.href = data.url; }, 3200);
-} else {
-document.getElementById('errorMsg').style.display = 'block';
-btn.disabled = false; btn.textContent = 'Continue to Link →';
-if (window.turnstile) window.turnstile.reset();
+/* ── Clock ── */
+(function tick(){
+  const el=document.getElementById('clock');
+  if(el) el.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});
+  setTimeout(tick,1000);
+})();
+
+/* ── Stars ── */
+(function(){
+  const c=document.getElementById('stars'),cx=c.getContext('2d');
+  function resize(){c.width=innerWidth;c.height=innerHeight} resize();
+  window.addEventListener('resize',resize);
+  const S=Array.from({length:200},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.2+0.2,a:Math.random(),da:(Math.random()-0.5)*0.008}));
+  function draw(){
+    cx.clearRect(0,0,c.width,c.height);
+    S.forEach(s=>{
+      s.a=Math.max(0.05,Math.min(1,s.a+s.da));
+      if(s.a<=0.05||s.a>=1) s.da*=-1;
+      cx.beginPath();cx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      cx.fillStyle='rgba(77,150,255,'+s.a+')';cx.fill();
+    });
+    requestAnimationFrame(draw);
+  } draw();
+})();
+
+/* ── Particles ── */
+(function(){
+  const c=document.getElementById('particles'),cx=c.getContext('2d');
+  function resize(){c.width=innerWidth;c.height=innerHeight} resize();
+  window.addEventListener('resize',resize);
+  const P=Array.from({length:40},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-0.5)*0.5,vy:(Math.random()-0.5)*0.5,r:Math.random()*2+0.5,a:Math.random()*0.4+0.1}));
+  function draw(){
+    cx.clearRect(0,0,c.width,c.height);
+    P.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;
+      if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      cx.fillStyle='rgba(0,212,255,'+p.a+')';cx.fill();
+    });
+    requestAnimationFrame(draw);
+  } draw();
+})();
+
+/* ── Countdown Timer ── */
+(function(){
+  const TOTAL=30;
+  const circumference=2*Math.PI*50;
+  let remaining=TOTAL;
+  let expired=false;
+  const numEl=document.getElementById('cdNum');
+  const ringEl=document.getElementById('ringProg');
+  const expiredEl=document.getElementById('cdExpired');
+  function update(){
+    const frac=remaining/TOTAL;
+    const offset=circumference*(1-frac);
+    ringEl.style.strokeDashoffset=offset;
+    numEl.textContent=remaining;
+    if(remaining<=10){
+      numEl.classList.add('urgent');
+      ringEl.classList.add('ring-urgent');
+    }
+    if(remaining<=0){
+      numEl.textContent='0';
+      expiredEl.style.display='block';
+      expired=true;
+      const tw=document.querySelector('.turnstile-wrap');
+      if(tw){ tw.style.opacity='0.35'; tw.style.pointerEvents='none'; }
+      return;
+    }
+    remaining--;
+    setTimeout(update,1000);
+  }
+  update();
+  // expose so verification flow can stop countdown
+  window._stopCountdown=function(){ expired=true; remaining=0; };
+})();
+
+/* ── Token extraction helper ── */
+// FIX: Robust token extraction — handles trailing slashes and query strings
+function getTokenFromURL(){
+  const path = window.location.pathname;
+  const match = path.match(/\/token\/(.+)/);
+  if(match && match[1]) return match[1].split('?')[0].replace(/\/$/, '');
+  return null;
 }
-} catch {
-document.getElementById('errorMsg').style.display = 'block';
-btn.disabled = false; btn.textContent = 'Continue to Link →';
-if (window.turnstile) window.turnstile.reset();
+
+/* ── State management ── */
+function showState(state){
+  document.getElementById('initialState').style.display   = state==='initial'   ? 'block' : 'none';
+  document.getElementById('progressWrap').style.display   = state==='progress'  ? 'flex'  : 'none';
+  document.getElementById('successWrap').style.display    = state==='success'   ? 'flex'  : 'none';
+  document.getElementById('errorWrap').style.display      = state==='error'     ? 'flex'  : 'none';
+  document.getElementById('countdownWrap').style.display  = (state==='initial') ? 'flex'  : 'none';
 }
+
+function showError(msg){
+  document.getElementById('errMsg').textContent = msg || 'Something went wrong. Please try again.';
+  showState('error');
+}
+
+function retryVerification(){
+  window.location.reload();
+}
+
+/* ── Turnstile Callbacks ── */
+// FIX: Guard against duplicate calls (Turnstile can fire callback multiple times)
+let _verifying = false;
+
+window.onTurnstileSuccess = async function(cfToken){
+  if(_verifying) return;
+  _verifying = true;
+
+  const statusEl = document.getElementById('cfStatus');
+  statusEl.textContent = '✓ Human verified! Validating secure token...';
+  statusEl.classList.add('success');
+
+  // FIX: Get token from URL using robust helper
+  const token = getTokenFromURL();
+
+  if(!token){
+    showError('Destination URL is missing. This link may be invalid or expired.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, cfToken })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok || !data.success){
+      throw new Error(data.error || 'Verification failed');
+    }
+
+    if(!data.url){
+      throw new Error('Server returned no redirect URL');
+    }
+
+    // Stop countdown, start progress animation
+    if(window._stopCountdown) window._stopCountdown();
+    startVerify(data.url);
+
+  } catch(err) {
+    _verifying = false; // allow retry
+    statusEl.textContent = '✗ ' + (err.message || 'Verification failed');
+    statusEl.classList.remove('success');
+    statusEl.classList.add('error');
+    console.error('[VM-MRX]', err);
+
+    // FIX: Show proper error state instead of silently failing
+    setTimeout(()=>{ showError(err.message || 'Verification failed. Please try again.'); }, 1200);
+  }
+};
+
+window.onTurnstileError = function(){
+  const s=document.getElementById('cfStatus');
+  s.textContent='✗ Verification error. Please try again.';
+  s.classList.add('error');
+  _verifying = false;
+};
+
+window.onTurnstileExpired = function(){
+  const s=document.getElementById('cfStatus');
+  s.textContent='⚠ Challenge expired. Refreshing widget...';
+  s.classList.remove('success');
+  s.classList.add('error');
+  _verifying = false;
+  if(typeof turnstile !== 'undefined') turnstile.reset();
+};
+
+/* ── Progress Animation → then redirect ── */
+// FIX: redirectUrl is now properly scoped and passed all the way through
+function startVerify(redirectUrl){
+  if(!redirectUrl){
+    showError('Redirect URL is missing.');
+    return;
+  }
+
+  showState('progress');
+
+  const steps=[
+    {id:'s1',iid:'i1',label:'FINGERPRINTING...'},
+    {id:'s2',iid:'i2',label:'VALIDATING HUMAN...'},
+    {id:'s3',iid:'i3',label:'GENERATING TOKEN...'}
+  ];
+  const fill=document.getElementById('pFill');
+  const pct=document.getElementById('pPct');
+  const plbl=document.getElementById('pLabel');
+  let p=0, cur=0;
+
+  document.getElementById(steps[0].id).classList.add('active');
+  plbl.textContent=steps[0].label;
+
+  const t=setInterval(()=>{
+    p+=Math.random()*2.5+0.4;
+    if(p>100) p=100;
+    fill.style.width=p+'%';
+    pct.textContent=Math.round(p)+'%';
+
+    if(p>33&&cur<1){
+      document.getElementById(steps[0].id).classList.replace('active','done');
+      document.getElementById(steps[0].iid).textContent='✓';
+      cur=1;
+      document.getElementById(steps[1].id).classList.add('active');
+      plbl.textContent=steps[1].label;
+    }
+    if(p>66&&cur<2){
+      document.getElementById(steps[1].id).classList.replace('active','done');
+      document.getElementById(steps[1].iid).textContent='✓';
+      cur=2;
+      document.getElementById(steps[2].id).classList.add('active');
+      plbl.textContent=steps[2].label;
+    }
+    if(p>=100){
+      clearInterval(t);
+      document.getElementById(steps[2].id).classList.replace('active','done');
+      document.getElementById(steps[2].iid).textContent='✓';
+      plbl.textContent='COMPLETE';
+      // FIX: Pass redirectUrl to showSuccess
+      showSuccess(redirectUrl);
+    }
+  },38);
+}
+
+/* ── Success + Redirect ── */
+// FIX: redirectUrl parameter is now always passed correctly from startVerify
+function showSuccess(redirectUrl){
+  setTimeout(()=>{
+    showState('success');
+
+    if(redirectUrl){
+      const link = document.getElementById('mLink');
+      link.href = redirectUrl;
+      link.style.display = 'inline';
+
+      // Redirect after animation completes (3.2s fill + 0.4s delay + buffer)
+      setTimeout(()=>{
+        window.location.href = redirectUrl;
+      }, 3800);
+    } else {
+      // FIX: Show proper error instead of broken "URL missing" message
+      showError('Redirect URL is missing. This link may be invalid.');
+    }
+  }, 250);
 }
 </script>
 </body>
