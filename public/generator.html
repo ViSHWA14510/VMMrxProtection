@@ -1,519 +1,511 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🛡️ LinkGuard Generator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VM-MRX — LinkGuard Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Syne', sans-serif;
-    background: #050b14;
-    color: #fff;
-    min-height: 100vh;
-    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 20px);
-  }
-  .grid-bg {
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(0,180,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,180,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px; pointer-events: none; z-index: 0;
-  }
-  .wrap { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --c0:#00000f;--c1:#00040f;--c2:#000820;--c3:#000d30;
+  --cyan:#00f5ff;--blue:#1a72ff;--purple:#9d00ff;
+  --green:#00ff88;--red:#ff003c;
+  --text:#c8e8ff;--muted:#2a5080;
+  --border:rgba(0,245,255,0.12);
+}
+html,body{min-height:100vh;background:var(--c0);color:var(--text);font-family:'Rajdhani',sans-serif;overflow-x:hidden}
 
-  /* Header */
-  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
-  .logo { display: flex; align-items: center; gap: 10px; }
-  .logo-icon {
-    width: 36px; height: 36px;
-    background: rgba(0,180,255,0.1); border: 1px solid rgba(0,180,255,0.3);
-    border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px;
-  }
-  .logo-name { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-  .settings-btn {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.5); width: 38px; height: 38px;
-    border-radius: 10px; cursor: pointer; font-size: 17px;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent; transition: all 0.15s;
-  }
-  .settings-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.93); }
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,245,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,255,0.03) 1px,transparent 1px);background-size:44px 44px;animation:gshift 20s linear infinite}
+@keyframes gshift{from{background-position:0 0}to{background-position:44px 44px}}
+.bg-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 3px)}
+.bg-orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:0.6}
+.o1{width:600px;height:600px;background:rgba(0,80,200,0.15);top:-200px;left:-100px;animation:od 18s ease-in-out infinite alternate}
+.o2{width:400px;height:400px;background:rgba(157,0,255,0.08);bottom:-100px;right:-50px;animation:od 14s ease-in-out infinite alternate-reverse}
+.o3{width:300px;height:300px;background:rgba(0,245,255,0.06);top:40%;left:60%;animation:od 22s ease-in-out infinite alternate}
+@keyframes od{from{transform:translate(0,0) scale(1)}to{transform:translate(30px,40px) scale(1.1)}}
+.cdeco{position:fixed;pointer-events:none;z-index:1;width:70px;height:70px}
+.cdeco.tl{top:0;left:0;border-top:1px solid rgba(0,245,255,0.18);border-left:1px solid rgba(0,245,255,0.18)}
+.cdeco.tr{top:0;right:0;border-top:1px solid rgba(0,245,255,0.18);border-right:1px solid rgba(0,245,255,0.18)}
+.cdeco.bl{bottom:0;left:0;border-bottom:1px solid rgba(0,245,255,0.18);border-left:1px solid rgba(0,245,255,0.18)}
+.cdeco.br{bottom:0;right:0;border-bottom:1px solid rgba(0,245,255,0.18);border-right:1px solid rgba(0,245,255,0.18)}
 
-  /* Headline */
-  .headline { font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: -0.5px; margin-bottom: 6px; }
-  .headline span { color: #00b4ff; }
-  .sub { font-size: 13px; color: rgba(255,255,255,0.38); font-family: 'Space Mono', monospace; line-height: 1.6; margin-bottom: 28px; }
+.shell{position:relative;z-index:10;max-width:920px;margin:0 auto;padding:24px 20px 60px}
 
-  /* Warning */
-  .no-config {
-    background: rgba(255,180,0,0.07); border: 1px solid rgba(255,180,0,0.25);
-    border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #ffcc44;
-    font-family: 'Space Mono', monospace; margin-bottom: 16px; line-height: 1.5; display: none;
-  }
-  .no-config.show { display: block; }
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.hdr-left{display:flex;align-items:center;gap:14px}
+.logo-hex{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(0,245,255,0.06);border:1px solid rgba(0,245,255,0.25);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)}
+.logo-hex svg{width:22px;height:22px}
+.logo-name{font-family:'Orbitron',monospace;font-size:17px;font-weight:900;letter-spacing:0.06em;color:#fff}
+.logo-name span{color:var(--cyan)}
+.logo-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.18em;margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.spill{display:flex;align-items:center;gap:6px;padding:5px 14px;border:1px solid rgba(0,255,136,0.22);border-radius:2px;background:rgba(0,255,136,0.04);font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);letter-spacing:0.15em}
+.sdot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:sd 1.6s ease-in-out infinite}
+@keyframes sd{0%,100%{opacity:1}50%{opacity:0.25}}
+.sbtn{width:36px;height:36px;border:1px solid var(--border);border-radius:2px;background:rgba(0,245,255,0.03);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all 0.2s}
+.sbtn:hover{border-color:rgba(0,245,255,0.3);color:var(--cyan)}
 
-  /* Card */
-  .card {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px; padding: 18px; margin-bottom: 14px;
-  }
-  .card-label {
-    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    margin-bottom: 10px; font-family: 'Space Mono', monospace;
-  }
-  textarea {
-    width: 100%; background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;
-    font-family: 'Space Mono', monospace; font-size: 13px;
-    padding: 12px 14px; resize: none; outline: none; line-height: 1.5;
-    transition: border-color 0.2s;
-  }
-  textarea:focus { border-color: rgba(0,180,255,0.4); }
-  textarea::placeholder { color: rgba(255,255,255,0.22); }
+/* Sec head */
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:0.2em;text-transform:uppercase}
+.sh::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+.shn{width:20px;height:20px;border:1px solid rgba(0,245,255,0.28);border-radius:1px;display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(0,245,255,0.55);flex-shrink:0}
 
-  .btn-generate {
-    width: 100%; padding: 15px;
-    background: linear-gradient(135deg, #00b4ff, #0077cc);
-    border: none; border-radius: 10px; color: #fff;
-    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
-    cursor: pointer; margin-top: 12px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.02em;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn-generate:active { transform: scale(0.98); opacity: 0.85; }
-  .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:22px;border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.tab{flex:1;padding:11px;text-align:center;cursor:pointer;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);border:none;background:transparent;transition:all 0.2s;border-right:1px solid var(--border)}
+.tab:last-child{border-right:none}
+.tab.on{color:var(--cyan);background:rgba(0,245,255,0.06)}
+.tab:hover:not(.on){color:var(--text);background:rgba(0,245,255,0.02)}
 
-  .spinner {
-    width: 17px; height: 17px;
-    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
-    border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* Card */
+.card{background:rgba(0,8,32,0.72);border:1px solid var(--border);border-radius:3px;padding:22px;margin-bottom:16px;position:relative;overflow:hidden;backdrop-filter:blur(20px)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,245,255,0.28),transparent)}
 
-  .error-box {
-    background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.2);
-    border-radius: 8px; padding: 10px 14px; font-size: 12px;
-    font-family: 'Space Mono', monospace; color: #ff6060;
-    margin-top: 10px; display: none; line-height: 1.5;
-  }
-  .error-box.show { display: block; }
+.ilbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.12em;margin-bottom:8px;display:block}
+.uinput{width:100%;background:rgba(0,4,15,0.8);border:1px solid rgba(0,245,255,0.1);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:12px 14px;outline:none;transition:border-color 0.2s;resize:none;line-height:1.5}
+.uinput:focus{border-color:rgba(0,245,255,0.35);box-shadow:0 0 0 1px rgba(0,245,255,0.04)}
+.uinput::placeholder{color:rgba(42,80,128,0.75)}
 
-  /* Result */
-  .result-card {
-    background: rgba(0,180,255,0.04); border: 1px solid rgba(0,180,255,0.2);
-    border-radius: 14px; padding: 18px; margin-bottom: 14px; display: none;
-  }
-  .result-card.show { display: block; }
-  .result-row { margin-bottom: 14px; }
-  .result-row:last-child { margin-bottom: 0; }
-  .result-label {
-    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.3);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    font-family: 'Space Mono', monospace; margin-bottom: 6px;
-  }
-  .link-box {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px; padding: 10px 12px;
-    font-family: 'Space Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.55);
-    word-break: break-all; line-height: 1.5; cursor: pointer;
-    display: flex; align-items: flex-start; gap: 8px;
-    -webkit-tap-highlight-color: transparent; transition: border-color 0.15s;
-  }
-  .link-box:active { border-color: rgba(255,255,255,0.2); }
-  .link-box .ltext { flex: 1; }
-  .link-box .ico { color: rgba(255,255,255,0.3); flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+.gbtn{width:100%;padding:14px;margin-top:12px;background:linear-gradient(135deg,rgba(0,245,255,0.08),rgba(26,114,255,0.14));border:1px solid rgba(0,245,255,0.28);border-radius:2px;color:var(--cyan);font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s;position:relative;overflow:hidden}
+.gbtn:hover{border-color:var(--cyan);box-shadow:0 0 18px rgba(0,245,255,0.12)}
+.gbtn:disabled{opacity:0.3;cursor:not-allowed}
+.gbtn:active:not(:disabled){transform:scale(0.99)}
+.spin{width:14px;height:14px;border:2px solid rgba(0,245,255,0.18);border-top-color:var(--cyan);border-radius:50%;animation:sp 0.7s linear infinite;display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
 
-  .share-box {
-    background: rgba(0,180,255,0.06); border: 1px solid rgba(0,180,255,0.28);
-    border-radius: 8px; padding: 10px 12px;
-    font-family: 'Space Mono', monospace; font-size: 12px; color: #00b4ff;
-    word-break: break-all; line-height: 1.5; cursor: pointer;
-    display: flex; align-items: flex-start; gap: 8px;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .share-box:active { opacity: 0.75; }
-  .share-box .ltext { flex: 1; }
-  .share-box .ico { color: rgba(0,180,255,0.5); flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+.ebar{display:none;margin-top:10px;padding:10px 14px;border-left:2px solid var(--red);border-radius:0 2px 2px 0;background:rgba(255,0,60,0.05);font-family:'Share Tech Mono',monospace;font-size:11px;color:#ff6680;line-height:1.5}
+.ebar.on{display:block}
 
-  .badge-share {
-    display: inline-block; background: rgba(0,180,255,0.1); color: #00b4ff;
-    font-size: 9px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; padding: 2px 8px; border-radius: 20px;
-    font-family: 'Space Mono', monospace; margin-bottom: 6px;
-  }
-  .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0; }
+/* Result */
+.rcard{display:none;margin-top:14px}
+.rcard.on{display:block}
+.rinner{background:rgba(0,4,15,0.9);border:1px solid rgba(0,245,255,0.14);border-radius:3px;overflow:hidden}
+.rrow{padding:12px 14px;border-bottom:1px solid rgba(0,245,255,0.05)}
+.rrow:last-child{border-bottom:none}
+.rlbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.12em;margin-bottom:6px;text-transform:uppercase}
+.rbox{display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(0,245,255,0.02);border:1px solid rgba(0,245,255,0.07);border-radius:2px;cursor:pointer;transition:border-color 0.15s}
+.rbox:hover{border-color:rgba(0,245,255,0.2)}
+.rbox.hi{background:rgba(0,245,255,0.05);border-color:rgba(0,245,255,0.18)}
+.rtxt{flex:1;font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(200,232,255,0.55);word-break:break-all;line-height:1.5}
+.rbox.hi .rtxt{color:var(--cyan)}
+.cico{flex-shrink:0;color:var(--muted);font-size:13px;transition:color 0.15s}
+.rbox:hover .cico{color:var(--cyan)}
+.stag{display:inline-block;font-family:'Orbitron',monospace;font-size:8px;color:var(--cyan);border:1px solid rgba(0,245,255,0.22);padding:2px 10px;border-radius:1px;letter-spacing:0.12em;margin-bottom:6px}
+.ract{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;border-top:1px solid rgba(0,245,255,0.05)}
+.abtn{padding:9px;background:rgba(0,245,255,0.03);border:1px solid rgba(0,245,255,0.1);border-radius:2px;color:rgba(200,232,255,0.55);font-family:'Orbitron',monospace;font-size:9px;letter-spacing:0.1em;cursor:pointer;text-align:center;transition:all 0.15s;text-transform:uppercase}
+.abtn:hover{border-color:rgba(0,245,255,0.3);color:var(--cyan)}
 
-  .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
-  .btn-sm {
-    padding: 11px; background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
-    color: rgba(255,255,255,0.7); font-family: 'Syne', sans-serif;
-    font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
-    -webkit-tap-highlight-color: transparent; transition: all 0.15s;
-  }
-  .btn-sm:active { background: rgba(255,255,255,0.1); transform: scale(0.97); }
+/* Bulk */
+.barea{width:100%;min-height:150px;background:rgba(0,4,15,0.8);border:1px solid rgba(0,245,255,0.1);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;padding:12px 14px;outline:none;resize:vertical;line-height:1.8;transition:border-color 0.2s}
+.barea:focus{border-color:rgba(0,245,255,0.35)}
+.barea::placeholder{color:rgba(42,80,128,0.65)}
+.bmeta{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.bcnt{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em}
+.bcnt span{color:var(--cyan)}
+.bclr{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:0.08em;background:none;border:none;transition:color 0.15s}
+.bclr:hover{color:var(--red)}
 
-  /* History */
-  .history-section { margin-top: 6px; }
-  .history-title {
-    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    font-family: 'Space Mono', monospace; margin-bottom: 10px;
-  }
-  .history-item {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 10px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer;
-    -webkit-tap-highlight-color: transparent; transition: border-color 0.15s;
-  }
-  .history-item:active { border-color: rgba(255,255,255,0.15); }
-  .history-short { font-family: 'Space Mono', monospace; font-size: 12px; color: #00b4ff; margin-bottom: 3px; word-break: break-all; }
-  .history-original { font-size: 12px; color: rgba(255,255,255,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Progress */
+.bpwrap{margin-top:14px;display:none}
+.bpwrap.on{display:block}
+.bplbls{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:5px}
+.bptrack{width:100%;height:2px;background:rgba(0,245,255,0.07);border-radius:2px;overflow:hidden}
+.bpfill{height:100%;width:0%;background:var(--cyan);border-radius:2px;transition:width 0.3s ease}
+.bplog{margin-top:8px;max-height:72px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:10px;line-height:1.7;color:var(--muted)}
+.bplog .lok{color:rgba(0,255,136,0.7)}.bplog .lerr{color:rgba(255,0,60,0.7)}
 
-  /* Settings overlay */
-  .overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    z-index: 50; display: none; align-items: flex-end;
-  }
-  .overlay.open { display: flex; }
-  .panel {
-    background: #0a1520; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px 20px 0 0;
-    padding: 24px 20px calc(40px + env(safe-area-inset-bottom, 0px));
-    width: 100%; animation: slideup 0.28s cubic-bezier(0.34,1.56,0.64,1);
-  }
-  @keyframes slideup { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  .panel-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; margin: 0 auto 22px; }
-  .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
-  .field { margin-bottom: 16px; }
-  .field label {
-    display: block; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    font-family: 'Space Mono', monospace; margin-bottom: 7px;
-  }
-  .field input {
-    width: 100%; background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; color: #fff;
-    font-family: 'Space Mono', monospace; font-size: 14px;
-    padding: 13px 14px; outline: none; transition: border-color 0.2s;
-  }
-  .field input:focus { border-color: rgba(0,180,255,0.4); }
-  .btn-save {
-    width: 100%; padding: 15px;
-    background: linear-gradient(135deg, #00b4ff, #0077cc);
-    border: none; border-radius: 10px; color: #fff;
-    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
-    cursor: pointer; margin-top: 6px; -webkit-tap-highlight-color: transparent;
-  }
-  .btn-save:active { opacity: 0.85; }
+/* Bulk results */
+.brwrap{margin-top:16px;display:none}
+.brwrap.on{display:block}
+.brtable-wrap{border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.brtoolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,4,15,0.92);border-bottom:1px solid var(--border)}
+.brtleft{font-family:'Orbitron',monospace;font-size:9px;color:var(--cyan);letter-spacing:0.15em}
+.brtright{display:flex;gap:8px}
+.tbbtn{padding:5px 12px;border:1px solid rgba(0,245,255,0.14);border-radius:2px;background:rgba(0,245,255,0.03);color:rgba(200,232,255,0.55);font-family:'Orbitron',monospace;font-size:8px;letter-spacing:0.1em;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
+.tbbtn:hover{border-color:rgba(0,245,255,0.35);color:var(--cyan)}
+.btable{width:100%;border-collapse:collapse}
+.btable th{padding:9px 12px;text-align:left;background:rgba(0,8,24,0.85);font-family:'Orbitron',monospace;font-size:8px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.btable td{padding:9px 12px;border-bottom:1px solid rgba(0,245,255,0.04);font-family:'Share Tech Mono',monospace;font-size:11px;vertical-align:middle}
+.btable tr:last-child td{border-bottom:none}
+.btable tr:hover td{background:rgba(0,245,255,0.015)}
+.tdorig{color:rgba(200,232,255,0.35);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tdprot{color:var(--cyan);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.tdprot:hover{text-decoration:underline}
+.sbadge{display:inline-block;padding:2px 10px;border-radius:1px;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:0.1em}
+.sbadge.ok{background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.18);color:var(--green)}
+.sbadge.err{background:rgba(255,0,60,0.07);border:1px solid rgba(255,0,60,0.18);color:var(--red)}
+.sbadge.pend{background:rgba(0,245,255,0.05);border:1px solid rgba(0,245,255,0.14);color:var(--cyan)}
+.ccbtn{padding:3px 10px;border:1px solid rgba(0,245,255,0.1);border-radius:1px;background:transparent;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.15s}
+.ccbtn:hover{border-color:rgba(0,245,255,0.35);color:var(--cyan)}
 
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 32px; left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: #0f1e2e; border: 1px solid rgba(0,180,255,0.2);
-    color: #fff; padding: 10px 22px; border-radius: 30px;
-    font-family: 'Space Mono', monospace; font-size: 13px;
-    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    z-index: 99; white-space: nowrap;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+/* History */
+.hempty{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;padding:20px 0;text-align:center}
+.hitem{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid rgba(0,245,255,0.07);border-radius:2px;background:rgba(0,8,24,0.5);margin-bottom:7px;transition:border-color 0.15s;cursor:pointer}
+.hitem:hover{border-color:rgba(0,245,255,0.2)}
+.hico{width:28px;height:28px;border:1px solid rgba(0,245,255,0.14);border-radius:1px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;color:var(--muted)}
+.hbody{flex:1;min-width:0}
+.hurl{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.horig{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmeta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.htime{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(42,80,128,0.6);letter-spacing:0.06em}
+.hdel{background:none;border:none;color:rgba(42,80,128,0.45);cursor:pointer;font-size:14px;transition:color 0.15s;padding:2px 4px}
+.hdel:hover{color:var(--red)}
+
+/* No config */
+.ncfg{display:none;padding:11px 14px;margin-bottom:16px;border:1px solid rgba(255,170,0,0.2);border-left:2px solid #ffaa00;border-radius:0 2px 2px 0;background:rgba(255,170,0,0.04);font-family:'Share Tech Mono',monospace;font-size:11px;color:#ffcc44;letter-spacing:0.06em;line-height:1.5}
+.ncfg.on{display:block}
+.ncfg a{color:#ffcc44;cursor:pointer;text-decoration:underline}
+
+/* Settings overlay */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.ov.open{display:flex}
+.spanel{width:100%;max-width:460px;margin:20px;background:rgba(0,8,24,0.98);border:1px solid rgba(0,245,255,0.2);border-radius:4px;overflow:hidden;box-shadow:0 0 60px rgba(0,245,255,0.07)}
+.sph{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sptitle{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:0.1em}
+.spclose{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;transition:color 0.15s}
+.spclose:hover{color:var(--red)}
+.spbody{padding:20px}
+.spfield{margin-bottom:16px}
+.splbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.12em;margin-bottom:7px;display:block;text-transform:uppercase}
+.spinput{width:100%;background:rgba(0,4,15,0.9);border:1px solid rgba(0,245,255,0.1);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:11px 13px;outline:none;transition:border-color 0.2s}
+.spinput:focus{border-color:rgba(0,245,255,0.35)}
+.spsave{width:100%;padding:13px;margin-top:6px;background:linear-gradient(135deg,rgba(0,245,255,0.1),rgba(26,114,255,0.16));border:1px solid rgba(0,245,255,0.28);border-radius:2px;color:var(--cyan);font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
+.spsave:hover{border-color:var(--cyan);box-shadow:0 0 16px rgba(0,245,255,0.1)}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:rgba(0,8,24,0.97);border:1px solid rgba(0,245,255,0.18);color:var(--cyan);padding:9px 24px;border-radius:2px;font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:0.08em;z-index:999;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 
-<div class="grid-bg"></div>
+<div class="bg-layer">
+  <div class="bg-grid"></div>
+  <div class="bg-scan"></div>
+  <div class="bg-orb o1"></div>
+  <div class="bg-orb o2"></div>
+  <div class="bg-orb o3"></div>
+</div>
+<div class="cdeco tl"></div><div class="cdeco tr"></div>
+<div class="cdeco bl"></div><div class="cdeco br"></div>
 
-<div class="wrap">
-  <div class="header">
-    <div class="logo">
-      <div class="logo-icon">🛡️</div>
-      <div class="logo-name">LinkGuard</div>
-    </div>
-    <button class="settings-btn" onclick="openSettings()">⚙️</button>
-  </div>
+<div class="shell">
 
-  <h1 class="headline">Paste URL,<br>get <span>protected</span></h1>
-  <p class="sub">Auto shortens → wraps in CAPTCHA wall → one link to share.</p>
-
-  <div class="no-config" id="noConfig">
-    ⚠️ First time? Tap ⚙️ to enter your Vercel URL + Admin Key.
-  </div>
-
-  <div class="card">
-    <div class="card-label">Long URL to protect</div>
-    <textarea id="urlInput" rows="3" placeholder="https://drive.google.com/file/d/..."></textarea>
-    <button class="btn-generate" id="genBtn" onclick="generate()">
-      <span id="btnLabel">Generate Protected Link →</span>
-      <div class="spinner" id="spinner"></div>
-    </button>
-    <div class="error-box" id="errorBox"></div>
-  </div>
-
-  <div class="result-card" id="resultCard">
-    <div class="result-row">
-      <div class="result-label">🔗 lksfy short link</div>
-      <div class="link-box" onclick="copyText('shortLink')">
-        <span class="ltext" id="shortLink">—</span>
-        <span class="ico">📋</span>
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="logo-hex">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L4 6V12C4 17.5 7.6 22.5 12 24C16.4 22.5 20 17.5 20 12V6L12 2Z" stroke="#00f5ff" stroke-width="1.5" fill="rgba(0,245,255,0.08)" stroke-linejoin="round"/>
+          <path d="M8 12.5L11 15.5L16 9" stroke="#00f5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">VM-MRX <span>LINKGUARD</span></div>
+        <div class="logo-sub">GENERATOR v2.0 // ADMIN PANEL</div>
       </div>
     </div>
-    <div class="divider"></div>
-    <div class="result-row">
-      <div class="badge-share">✦ Share this one</div>
-      <div class="result-label">Protected link</div>
-      <div class="share-box" onclick="copyText('protectedLink')">
-        <span class="ltext" id="protectedLink">—</span>
-        <span class="ico">📋</span>
-      </div>
-    </div>
-    <div class="action-row">
-      <button class="btn-sm" onclick="shareIt()">↗ Share</button>
-      <button class="btn-sm" onclick="newLink()">+ New link</button>
+    <div class="hdr-right">
+      <div class="spill"><div class="sdot"></div>SYSTEM ONLINE</div>
+      <button class="sbtn" onclick="openSettings()">&#9881;</button>
     </div>
   </div>
 
-  <div class="history-section" id="historySection" style="display:none">
-    <div class="history-title">Recent</div>
-    <div id="historyList"></div>
+  <div class="ncfg on" id="noCfg">
+    &#9888;&nbsp; Setup required — <a onclick="openSettings()">click here to enter your Vercel URL and Admin Key</a> before generating links.
   </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" onclick="setMode('single')" id="tab-single">&#9632;&nbsp; Single URL</button>
+    <button class="tab" onclick="setMode('bulk')" id="tab-bulk">&#9632;&#9632;&nbsp; Bulk Generator</button>
+    <button class="tab" onclick="setMode('history')" id="tab-history">&#9776;&nbsp; History</button>
+  </div>
+
+  <!-- SINGLE MODE -->
+  <div id="mode-single">
+    <div class="sh"><div class="shn">01</div>Generate Protected Link</div>
+    <div class="card">
+      <label class="ilbl">&#8594; ENTER DESTINATION URL</label>
+      <textarea class="uinput" id="sUrl" rows="2" placeholder="https://drive.google.com/file/d/your-file-id/view"></textarea>
+      <button class="gbtn" id="sBtn" onclick="singleGen()">
+        <span id="sBtnT">&#9632; GENERATE PROTECTED LINK</span>
+        <div class="spin" id="sSpin"></div>
+      </button>
+      <div class="ebar" id="sErr"></div>
+    </div>
+    <div class="rcard" id="sResult">
+      <div class="rinner">
+        <div class="rrow">
+          <div class="rlbl">&#8594; Short link (lksfy)</div>
+          <div class="rbox" onclick="cpv('sShort')"><span class="rtxt" id="sShort"></span><span class="cico">&#128203;</span></div>
+        </div>
+        <div class="rrow">
+          <div class="stag">&#10022; SHARE THIS LINK</div>
+          <div class="rlbl">Protected URL</div>
+          <div class="rbox hi" onclick="cpv('sProt')"><span class="rtxt" id="sProt"></span><span class="cico">&#128203;</span></div>
+        </div>
+        <div class="ract">
+          <button class="abtn" onclick="cpv('sProt')">&#128203; Copy Protected</button>
+          <button class="abtn" onclick="shareIt()">&#8599; Share</button>
+          <button class="abtn" onclick="newSingle()">&#43; New Link</button>
+          <button class="abtn" onclick="setMode('bulk')">&#9632;&#9632; Bulk Mode</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULK MODE -->
+  <div id="mode-bulk" style="display:none">
+    <div class="sh"><div class="shn">02</div>Bulk URL Generator</div>
+    <div class="card">
+      <label class="ilbl">&#8594; PASTE URLS — ONE PER LINE (max 50)</label>
+      <textarea class="barea" id="bUrls" oninput="updateCount()" placeholder="https://drive.google.com/file/d/abc&#10;https://dropbox.com/s/xyz&#10;https://example.com/secret&#10;..."></textarea>
+      <div class="bmeta">
+        <div class="bcnt">URLs detected: <span id="bCnt">0</span></div>
+        <button class="bclr" onclick="clrBulk()">&#10005; Clear all</button>
+      </div>
+      <button class="gbtn" id="bBtn" onclick="bulkGen()" style="margin-top:14px">
+        <span id="bBtnT">&#9632;&#9632; GENERATE ALL PROTECTED LINKS</span>
+        <div class="spin" id="bSpin"></div>
+      </button>
+      <div class="ebar" id="bErr"></div>
+      <div class="bpwrap" id="bProg">
+        <div class="bplbls"><span id="bProgLbl">Processing...</span><span id="bProgPct">0%</span></div>
+        <div class="bptrack"><div class="bpfill" id="bProgFill"></div></div>
+        <div class="bplog" id="bLog"></div>
+      </div>
+    </div>
+
+    <div class="brwrap" id="bResults">
+      <div class="brtable-wrap">
+        <div class="brtoolbar">
+          <div class="brtleft">&#9632; RESULTS — <span id="bResCnt">0</span> LINKS GENERATED</div>
+          <div class="brtright">
+            <button class="tbbtn" onclick="cpAll()">&#128203; Copy All</button>
+            <button class="tbbtn" onclick="dlCSV()">&#8595; Export CSV</button>
+            <button class="tbbtn" onclick="clrResults()">&#10005; Clear</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="btable" id="bTable">
+            <thead><tr><th>#</th><th>Original URL</th><th>Protected Link</th><th>Status</th><th>Copy</th></tr></thead>
+            <tbody id="bTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY MODE -->
+  <div id="mode-history" style="display:none">
+    <div class="sh"><div class="shn">03</div>Link History</div>
+    <div id="histList"></div>
+  </div>
+
 </div>
 
-<!-- Settings panel -->
-<div class="overlay" id="overlay" onclick="maybeClose(event)">
-  <div class="panel" id="panel">
-    <div class="panel-handle"></div>
-    <div class="panel-title">Setup</div>
-    <div class="field">
-      <label>Vercel Site URL</label>
-      <input type="url" id="siteUrl" placeholder="https://your-project.vercel.app" inputmode="url" autocomplete="off">
+<!-- Settings overlay -->
+<div class="ov" id="ov">
+  <div class="spanel">
+    <div class="sph">
+      <div class="sptitle">&#9881; SYSTEM CONFIGURATION</div>
+      <button class="spclose" onclick="closeSettings()">&#10005;</button>
     </div>
-    <div class="field">
-      <label>Admin Key</label>
-      <input type="password" id="adminKey" placeholder="Your ADMIN_KEY from Vercel" autocomplete="off">
+    <div class="spbody">
+      <div class="spfield"><label class="splbl">Vercel Site URL</label><input class="spinput" type="url" id="cfgUrl" placeholder="https://your-project.vercel.app" autocomplete="off"/></div>
+      <div class="spfield"><label class="splbl">Admin Key</label><input class="spinput" type="password" id="cfgKey" placeholder="Your ADMIN_KEY secret" autocomplete="off"/></div>
+      <button class="spsave" onclick="saveSettings()">&#9632; SAVE CONFIGURATION</button>
     </div>
-    <button class="btn-save" onclick="saveSettings()">Save Settings</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const $ = id => document.getElementById(id);
-
-function getConfig() {
-  // FIX: Wrap in try/catch in case localStorage is disabled (private mode)
-  try {
-    const s = JSON.parse(localStorage.getItem('plg-settings') || '{}');
-    return { siteUrl: (s.siteUrl || '').replace(/\/$/, ''), adminKey: s.adminKey || '' };
-  } catch {
-    return { siteUrl: '', adminKey: '' };
-  }
+// ── Config ──
+function getCfg(){try{return JSON.parse(localStorage.getItem('vmx-cfg')||'{}')}catch{return{}}}
+function saveCfg(o){try{localStorage.setItem('vmx-cfg',JSON.stringify(o))}catch{}}
+function checkCfg(){const c=getCfg();const ok=!!(c.siteUrl&&c.adminKey);document.getElementById('noCfg').classList.toggle('on',!ok);return ok}
+function openSettings(){const c=getCfg();document.getElementById('cfgUrl').value=c.siteUrl||'';document.getElementById('cfgKey').value=c.adminKey||'';document.getElementById('ov').classList.add('open')}
+function closeSettings(){document.getElementById('ov').classList.remove('open')}
+document.getElementById('ov').addEventListener('click',function(e){if(e.target===this)closeSettings()})
+function saveSettings(){
+  const url=(document.getElementById('cfgUrl').value||'').trim().replace(/\/$/,'');
+  const key=(document.getElementById('cfgKey').value||'').trim();
+  if(!url||!key){toast('Fill in both fields');return}
+  try{new URL(url)}catch{toast('Site URL is not valid');return}
+  saveCfg({siteUrl:url,adminKey:key});closeSettings();checkCfg();toast('&#10003; Configuration saved')
 }
 
-function checkConfig() {
-  const c = getConfig();
-  $('noConfig').classList.toggle('show', !c.siteUrl || !c.adminKey);
+// ── Tabs ──
+function setMode(m){
+  ['single','bulk','history'].forEach(x=>{
+    document.getElementById('mode-'+x).style.display=x===m?'block':'none';
+    document.getElementById('tab-'+x).classList.toggle('on',x===m);
+  });
+  if(m==='history')renderHist();
 }
 
-function openSettings() {
-  const c = getConfig();
-  $('siteUrl').value = c.siteUrl;
-  $('adminKey').value = c.adminKey;
-  $('overlay').classList.add('open');
+// ── Toast ──
+function toast(msg){const e=document.getElementById('toast');e.innerHTML=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300)}
+
+// ── Helpers ──
+function cpv(id){const t=document.getElementById(id)?.textContent;if(!t)return;navigator.clipboard.writeText(t).then(()=>toast('&#128203; Copied!')).catch(()=>{try{const el=document.createElement('textarea');el.value=t;el.style.cssText='position:fixed;opacity:0';document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);toast('&#128203; Copied!')}catch{toast('Copy failed')}})}
+function cpTxt(t){navigator.clipboard.writeText(t).then(()=>toast('&#128203; Copied!')).catch(()=>toast('Copy failed'))}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function showErr(id,msg){const e=document.getElementById(id);e.textContent='⚠ '+msg;e.classList.add('on')}
+function setLoad(bid,tid,sid,lbl,on){document.getElementById(bid).disabled=on;document.getElementById(tid).innerHTML=lbl;document.getElementById(sid).style.display=on?'block':'none'}
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ── API ──
+async function callGen(url){
+  const c=getCfg();
+  const res=await fetch(`${c.siteUrl}/api/generate`,{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':c.adminKey},body:JSON.stringify({url})});
+  let data;try{data=await res.json()}catch{throw new Error('Server returned invalid response')}
+  if(res.status===401)throw new Error('Wrong Admin Key — check Settings');
+  if(res.status===400)throw new Error(data.error||'Invalid URL');
+  if(!res.ok)throw new Error(data.error||`Server error (${res.status})`);
+  if(!data.success||!data.protected_url)throw new Error('Incomplete response from server');
+  return data;
 }
 
-function maybeClose(e) {
-  if (e.target === $('overlay')) $('overlay').classList.remove('open');
+// ── Single ──
+async function singleGen(){
+  const url=(document.getElementById('sUrl').value||'').trim();
+  if(!url){showErr('sErr','Enter a URL first');return}
+  try{new URL(url)}catch{showErr('sErr','Invalid URL — include https://');return}
+  if(!checkCfg()){openSettings();return}
+  setLoad('sBtn','sBtnT','sSpin','&#9632; GENERATING...',true);
+  document.getElementById('sErr').classList.remove('on');
+  document.getElementById('sResult').classList.remove('on');
+  try{
+    const d=await callGen(url);
+    document.getElementById('sShort').textContent=d.short_url;
+    document.getElementById('sProt').textContent=d.protected_url;
+    document.getElementById('sResult').classList.add('on');
+    saveHist({orig:url,shortUrl:d.short_url,protUrl:d.protected_url,ts:Date.now()});
+    document.getElementById('sUrl').value='';
+  }catch(e){showErr('sErr',e.message)}
+  finally{setLoad('sBtn','sBtnT','sSpin','&#9632; GENERATE PROTECTED LINK',false)}
 }
+function newSingle(){document.getElementById('sResult').classList.remove('on');document.getElementById('sErr').classList.remove('on');document.getElementById('sUrl').value='';document.getElementById('sUrl').focus()}
+function shareIt(){const u=document.getElementById('sProt').textContent;if(!u)return;if(navigator.share)navigator.share({title:'Protected Link',url:u}).catch(()=>cpv('sProt'));else cpv('sProt')}
 
-function saveSettings() {
-  const url = $('siteUrl').value.trim().replace(/\/$/, '');
-  const key = $('adminKey').value.trim();
-  if (!url || !key) { showToast('Fill in both fields'); return; }
-  // FIX: Validate site URL format before saving
-  try { new URL(url); } catch { showToast('Site URL is not valid'); return; }
-  try {
-    localStorage.setItem('plg-settings', JSON.stringify({ siteUrl: url, adminKey: key }));
-  } catch {
-    showToast('Could not save — storage may be disabled');
-    return;
-  }
-  $('overlay').classList.remove('open');
-  checkConfig();
-  showToast('Saved ✓');
-}
+// ── Bulk ──
+let bData=[];
+function updateCount(){const l=(document.getElementById('bUrls').value||'').split('\n').map(s=>s.trim()).filter(Boolean);document.getElementById('bCnt').textContent=Math.min(l.length,50)}
+function clrBulk(){document.getElementById('bUrls').value='';document.getElementById('bCnt').textContent='0';document.getElementById('bErr').classList.remove('on')}
+function clrResults(){document.getElementById('bResults').classList.remove('on');document.getElementById('bTbody').innerHTML='';bData=[]}
 
-async function generate() {
-  const url = $('urlInput').value.trim();
-  if (!url) { showErr('Paste a URL first'); return; }
-  // FIX: Stricter URL check
-  try { new URL(url); } catch { showErr('Please enter a valid URL including http:// or https://'); return; }
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    showErr('URL must start with http:// or https://'); return;
-  }
+async function bulkGen(){
+  const raw=(document.getElementById('bUrls').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const urls=[...new Set(raw)].slice(0,50);
+  if(!urls.length){showErr('bErr','Paste at least one URL');return}
+  if(!checkCfg()){openSettings();return}
+  const inv=urls.filter(u=>{try{new URL(u);return false}catch{return true}});
+  if(inv.length){showErr('bErr',`${inv.length} invalid URL(s) — ensure all start with http:// or https://`);return}
 
-  const c = getConfig();
-  if (!c.siteUrl || !c.adminKey) {
-    showErr('Setup needed — tap ⚙️ first');
-    openSettings(); return;
-  }
+  setLoad('bBtn','bBtnT','bSpin',`&#9632;&#9632; PROCESSING 0/${urls.length}...`,true);
+  document.getElementById('bErr').classList.remove('on');
+  document.getElementById('bResults').classList.remove('on');
+  const prog=document.getElementById('bProg');
+  const fill=document.getElementById('bProgFill');
+  const lbl=document.getElementById('bProgLbl');
+  const pct=document.getElementById('bProgPct');
+  const log=document.getElementById('bLog');
+  prog.classList.add('on');fill.style.width='0%';log.innerHTML='';bData=[];
 
-  setLoading(true);
-  $('errorBox').classList.remove('show');
+  const tbody=document.getElementById('bTbody');tbody.innerHTML='';
+  urls.forEach((u,i)=>{
+    const tr=document.createElement('tr');tr.id='br'+i;
+    tr.innerHTML=`<td style="color:var(--muted);font-size:10px">${i+1}</td><td class="tdorig" title="${esc(u)}">${esc(u)}</td><td style="color:var(--muted);font-size:10px">—</td><td style="text-align:center"><span class="sbadge pend">PENDING</span></td><td style="text-align:center">—</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('bResults').classList.add('on');
+  document.getElementById('bResCnt').textContent='0';
 
-  try {
-    const res = await fetch(`${c.siteUrl}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-key': c.adminKey
-      },
-      body: JSON.stringify({ url })
-    });
-
-    let data;
-    try {
-      data = await res.json();
-    } catch {
-      throw new Error('Server returned an unexpected response. Check your Vercel URL.');
+  let done=0,ok=0;
+  for(let i=0;i<urls.length;i++){
+    const u=urls[i];lbl.textContent=`Processing ${i+1} of ${urls.length}...`;
+    document.getElementById('bBtnT').innerHTML=`&#9632;&#9632; PROCESSING ${i+1}/${urls.length}...`;
+    try{
+      const d=await callGen(u);
+      bData.push({orig:u,shortUrl:d.short_url,protUrl:d.protected_url,ok:true});
+      saveHist({orig:u,shortUrl:d.short_url,protUrl:d.protected_url,ts:Date.now()});
+      ok++;
+      updRow(i,u,d.protected_url,true);
+      addLog(log,u,true);
+    }catch(e){
+      bData.push({orig:u,error:e.message,ok:false});
+      updRow(i,u,null,false,e.message);
+      addLog(log,u,false,e.message);
     }
+    done++;
+    const p=Math.round((done/urls.length)*100);
+    fill.style.width=p+'%';pct.textContent=p+'%';
+    document.getElementById('bResCnt').textContent=ok;
+    if(i<urls.length-1)await delay(350);
+  }
+  prog.classList.remove('on');
+  setLoad('bBtn','bBtnT','bSpin','&#9632;&#9632; GENERATE ALL PROTECTED LINKS',false);
+  toast(`&#10003; Done — ${ok}/${urls.length} links generated`);
+}
 
-    if (res.status === 401) throw new Error('Wrong Admin Key. Check Settings.');
-    if (res.status === 400) throw new Error(data.error || 'Invalid URL');
-    if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
-    if (!data.success) throw new Error(data.error || 'Failed to generate link');
-
-    // FIX: Validate returned URLs exist before showing
-    if (!data.protected_url || !data.short_url) {
-      throw new Error('Server returned incomplete data');
-    }
-
-    $('shortLink').textContent = data.short_url;
-    $('protectedLink').textContent = data.protected_url;
-    $('resultCard').classList.add('show');
-    $('urlInput').value = '';
-
-    saveHistory({ shortUrl: data.short_url, protectedUrl: data.protected_url, original: url });
-    renderHistory();
-  } catch (err) {
-    showErr(err.message || 'Could not reach your Vercel site. Check Settings.');
-  } finally {
-    setLoading(false);
+function updRow(i,orig,protUrl,ok,errMsg){
+  const tr=document.getElementById('br'+i);if(!tr)return;
+  if(ok){
+    const pEsc=esc(protUrl);
+    tr.innerHTML=`<td style="color:var(--muted);font-size:10px">${i+1}</td><td class="tdorig" title="${esc(orig)}">${esc(orig)}</td><td class="tdprot" title="${pEsc}" onclick="cpTxt('${pEsc}')">${pEsc}</td><td style="text-align:center"><span class="sbadge ok">OK</span></td><td style="text-align:center"><button class="ccbtn" onclick="cpTxt('${pEsc}')">&#128203;</button></td>`;
+  }else{
+    tr.innerHTML=`<td style="color:var(--muted);font-size:10px">${i+1}</td><td class="tdorig" title="${esc(orig)}">${esc(orig)}</td><td style="color:var(--red);font-size:10px">${esc(errMsg||'Failed')}</td><td style="text-align:center"><span class="sbadge err">FAILED</span></td><td style="text-align:center">—</td>`;
   }
 }
-
-function setLoading(on) {
-  $('genBtn').disabled = on;
-  $('spinner').style.display = on ? 'block' : 'none';
-  $('btnLabel').textContent = on ? 'Creating…' : 'Generate Protected Link →';
+function addLog(el,url,ok,err){const s=url.length>48?url.slice(0,48)+'...':url;const d=document.createElement('div');d.className=ok?'lok':'lerr';d.textContent=(ok?'✓ ':'✗ ')+s+(err?' — '+err:'');el.appendChild(d);el.scrollTop=el.scrollHeight}
+function cpAll(){const l=bData.filter(d=>d.ok).map(d=>d.protUrl).join('\n');if(!l){toast('No links to copy');return}navigator.clipboard.writeText(l).then(()=>toast(`&#128203; Copied ${bData.filter(d=>d.ok).length} links`)).catch(()=>toast('Copy failed'))}
+function dlCSV(){
+  if(!bData.length){toast('No data to export');return}
+  const rows=[['#','Original URL','Short URL','Protected URL','Status']];
+  bData.forEach((d,i)=>rows.push([i+1,d.orig,d.shortUrl||'',d.protUrl||'',d.ok?'OK':'FAILED']));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='linkguard-export.csv';a.click();toast('&#8595; CSV downloaded');
 }
 
-function showErr(msg) {
-  const b = $('errorBox'); b.textContent = '⚠ ' + msg; b.classList.add('show');
+// ── History ──
+function saveHist(item){try{const h=JSON.parse(localStorage.getItem('vmx-history')||'[]');const f=h.filter(i=>i.orig!==item.orig);f.unshift(item);localStorage.setItem('vmx-history',JSON.stringify(f.slice(0,30)))}catch{}}
+function getHist(){try{return JSON.parse(localStorage.getItem('vmx-history')||'[]')}catch{return[]}}
+function timeAgo(ts){const s=Math.floor((Date.now()-ts)/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+
+function renderHist(){
+  const h=getHist();
+  const el=document.getElementById('histList');
+  if(!h.length){el.innerHTML='<div class="hempty">&#9632; No links generated yet</div>';return}
+  el.innerHTML=h.map((item,idx)=>`
+    <div class="hitem" onclick="loadHist(${idx})">
+      <div class="hico">&#9679;</div>
+      <div class="hbody">
+        <div class="hurl">${esc(item.protUrl||'')}</div>
+        <div class="horig">${esc(item.orig||'')}</div>
+      </div>
+      <div class="hmeta">
+        <div class="htime">${item.ts?timeAgo(item.ts):''}</div>
+        <button class="hdel" onclick="event.stopPropagation();delHist(${idx})">&#10005;</button>
+      </div>
+    </div>`).join('');
 }
 
-function copyText(id) {
-  const text = $(id).textContent;
-  if (!text || text === '—') return;
-  navigator.clipboard.writeText(text)
-    .then(() => showToast('Copied!'))
-    .catch(() => {
-      // FIX: Fallback for browsers without clipboard API
-      try {
-        const el = document.createElement('textarea');
-        el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
-        document.body.appendChild(el);
-        el.select(); document.execCommand('copy'); document.body.removeChild(el);
-        showToast('Copied!');
-      } catch {
-        showToast('Copy failed — please copy manually');
-      }
-    });
-}
+function loadHist(idx){const h=getHist();const item=h[idx];if(!item)return;setMode('single');document.getElementById('sShort').textContent=item.shortUrl||'';document.getElementById('sProt').textContent=item.protUrl||'';document.getElementById('sResult').classList.add('on')}
+function delHist(idx){try{const h=getHist();h.splice(idx,1);localStorage.setItem('vmx-history',JSON.stringify(h));renderHist();toast('&#10005; Deleted')}catch{}}
 
-function shareIt() {
-  const url = $('protectedLink').textContent;
-  if (!url || url === '—') return;
-  if (navigator.share) {
-    navigator.share({ title: 'Protected Link', url }).catch(() => copyText('protectedLink'));
-  } else {
-    copyText('protectedLink');
-  }
-}
+// ── URL listeners ──
+document.getElementById('sUrl').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();singleGen()}});
+document.getElementById('sUrl').addEventListener('paste',()=>{setTimeout(()=>{if(document.getElementById('sUrl').value.trim())singleGen()},150)});
 
-function newLink() {
-  $('resultCard').classList.remove('show');
-  $('errorBox').classList.remove('show');
-  $('urlInput').value = '';
-  $('urlInput').focus();
-}
-
-function showToast(msg) {
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-function saveHistory(item) {
-  try {
-    const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
-    // FIX: Avoid duplicate entries for same URL
-    const filtered = h.filter(i => i.original !== item.original);
-    filtered.unshift({ ...item, time: Date.now() });
-    localStorage.setItem('plg-history', JSON.stringify(filtered.slice(0, 10)));
-  } catch { /* storage unavailable */ }
-}
-
-function renderHistory() {
-  try {
-    const h = JSON.parse(localStorage.getItem('plg-history') || '[]');
-    if (!h.length) return;
-    $('historySection').style.display = 'block';
-    // FIX: Use data attributes instead of inline onclick with encodeURIComponent to avoid XSS
-    $('historyList').innerHTML = h.map((item, idx) =>
-      `<div class="history-item" data-idx="${idx}">
-        <div class="history-short">${escHtml(item.protectedUrl)}</div>
-        <div class="history-original">${escHtml(item.original)}</div>
-      </div>`
-    ).join('');
-    // Attach events safely
-    $('historyList').querySelectorAll('.history-item').forEach((el, idx) => {
-      el.addEventListener('click', () => {
-        const item = h[idx];
-        if (item) showResult(item.shortUrl, item.protectedUrl);
-      });
-    });
-  } catch { /* storage unavailable */ }
-}
-
-// FIX: HTML escape helper to prevent XSS in history rendering
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-function showResult(s, p) {
-  $('shortLink').textContent = s;
-  $('protectedLink').textContent = p;
-  $('resultCard').classList.add('show');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Auto-generate on paste
-$('urlInput').addEventListener('paste', () => {
-  setTimeout(() => { if ($('urlInput').value.trim()) generate(); }, 150);
-});
-$('urlInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); generate(); }
-});
-
-checkConfig();
-renderHistory();
+checkCfg();
+updateCount();
 </script>
 </body>
 </html>
