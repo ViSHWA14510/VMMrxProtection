@@ -13,8 +13,20 @@
       "destination": "/api/direct"
     },
     {
+      "source": "/api/track",
+      "destination": "/api/track"
+    },
+    {
+      "source": "/api/stats",
+      "destination": "/api/stats"
+    },
+    {
       "source": "/token/(.*)",
       "destination": "/index.html"
+    },
+    {
+      "source": "/stats",
+      "destination": "/stats.html"
     },
     {
       "source": "/((?!api|token|.*\\..*).*)",
