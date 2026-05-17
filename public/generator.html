@@ -359,6 +359,7 @@ html,body{min-height:100vh;background:var(--c0);color:var(--text);font-family:'R
     </div>
   </div>
 
+
   <!-- HISTORY MODE -->
   <div id="mode-history" style="display:none">
     <div class="sh"><div class="shn">03</div>Link History</div>
@@ -625,6 +626,7 @@ function directShare(){
   if(navigator.share)navigator.share({title:'Protected Link',url:u}).catch(()=>cpv('dProt'));
   else cpv('dProt');
 }
+
 
 checkCfg();
 updateCount();
