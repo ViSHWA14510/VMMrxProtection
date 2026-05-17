@@ -222,6 +222,7 @@ html,body{min-height:100vh;background:var(--c0);color:var(--text);font-family:'R
   <div class="tabs">
     <button class="tab on" onclick="setMode('single')" id="tab-single">&#9632;&nbsp; Single URL</button>
     <button class="tab" onclick="setMode('bulk')" id="tab-bulk">&#9632;&#9632;&nbsp; Bulk Generator</button>
+    <button class="tab" onclick="setMode('direct')" id="tab-direct">&#9670;&nbsp; Direct Protect</button>
     <button class="tab" onclick="setMode('history')" id="tab-history">&#9776;&nbsp; History</button>
   </div>
 
@@ -300,6 +301,64 @@ html,body{min-height:100vh;background:var(--c0);color:var(--text);font-family:'R
     </div>
   </div>
 
+
+  <!-- DIRECT PROTECT MODE -->
+  <div id="mode-direct" style="display:none">
+    <div class="sh"><div class="shn">04</div>Direct Cloudflare Protection — No Shortener</div>
+
+    <div class="card" style="border-color:rgba(157,0,255,0.22)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 12px;background:rgba(157,0,255,0.06);border:1px solid rgba(157,0,255,0.18);border-radius:2px;">
+        <span style="font-size:16px">&#9670;</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(157,0,255,0.9);letter-spacing:0.1em;line-height:1.5">
+          DIRECT MODE &mdash; paste any link. Users complete Cloudflare verification, then land on your original link. <strong style="color:#c8e8ff">No lksfy shortener attached.</strong>
+        </span>
+      </div>
+
+      <label class="ilbl">&#8594; PASTE YOUR DESTINATION URL</label>
+      <textarea class="uinput" id="dUrl" rows="2" placeholder="https://drive.google.com/file/d/your-file-id/view" style="border-color:rgba(157,0,255,0.15)"></textarea>
+
+      <div id="dPreview" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(0,4,15,0.7);border:1px solid rgba(157,0,255,0.1);border-radius:2px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(42,80,128,0.8);letter-spacing:0.1em;margin-bottom:4px;text-transform:uppercase;">Destination</div>
+        <div id="dPreviewTxt" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(200,232,255,0.6);word-break:break-all;line-height:1.5"></div>
+      </div>
+
+      <button class="gbtn" id="dBtn" onclick="directGen()" style="border-color:rgba(157,0,255,0.38);color:#c084fc;background:linear-gradient(135deg,rgba(157,0,255,0.08),rgba(100,0,200,0.14))">
+        <span id="dBtnT">&#9670; GENERATE CLOUDFLARE-PROTECTED LINK</span>
+        <div class="spin" id="dSpin"></div>
+      </button>
+      <div class="ebar" id="dErr"></div>
+    </div>
+
+    <div class="rcard" id="dResult">
+      <div class="rinner">
+        <div class="rrow">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span class="stag" style="color:#c084fc;border-color:rgba(157,0,255,0.28)">&#9670; DIRECT PROTECTED LINK</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(42,80,128,0.7);letter-spacing:0.08em">NO SHORTENER &mdash; Cloudflare only</span>
+          </div>
+          <div class="rlbl">&#8594; Share this link &mdash; user completes Cloudflare, then reaches your original URL</div>
+          <div class="rbox hi" onclick="cpv('dProt')" style="border-color:rgba(157,0,255,0.3);background:rgba(157,0,255,0.05)">
+            <span class="rtxt" id="dProt" style="color:#c084fc"></span>
+            <span class="cico">&#128203;</span>
+          </div>
+        </div>
+        <div class="rrow">
+          <div class="rlbl">&#8594; Original destination (hidden from user until verified)</div>
+          <div class="rbox" onclick="cpv('dOrig')">
+            <span class="rtxt" id="dOrig"></span>
+            <span class="cico">&#128203;</span>
+          </div>
+        </div>
+        <div class="ract">
+          <button class="abtn" onclick="cpv('dProt')" style="border-color:rgba(157,0,255,0.18);color:#c084fc">&#128203; Copy Protected</button>
+          <button class="abtn" onclick="directShare()">&#8599; Share</button>
+          <button class="abtn" onclick="newDirect()">&#43; New Link</button>
+          <button class="abtn" onclick="setMode('single')">&#9632; Single Mode</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- HISTORY MODE -->
   <div id="mode-history" style="display:none">
     <div class="sh"><div class="shn">03</div>Link History</div>
@@ -343,7 +402,7 @@ function saveSettings(){
 
 // ── Tabs ──
 function setMode(m){
-  ['single','bulk','history'].forEach(x=>{
+  ['single','bulk','direct','history'].forEach(x=>{
     document.getElementById('mode-'+x).style.display=x===m?'block':'none';
     document.getElementById('tab-'+x).classList.toggle('on',x===m);
   });
@@ -503,6 +562,69 @@ function delHist(idx){try{const h=getHist();h.splice(idx,1);localStorage.setItem
 // ── URL listeners ──
 document.getElementById('sUrl').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();singleGen()}});
 document.getElementById('sUrl').addEventListener('paste',()=>{setTimeout(()=>{if(document.getElementById('sUrl').value.trim())singleGen()},150)});
+
+
+// ── Direct Protect ──
+document.getElementById('dUrl').addEventListener('input',function(){
+  const v=(this.value||'').trim();
+  const prev=document.getElementById('dPreview');
+  if(v){
+    document.getElementById('dPreviewTxt').textContent=v;
+    prev.style.display='block';
+  } else {
+    prev.style.display='none';
+  }
+  document.getElementById('dErr').classList.remove('on');
+});
+document.getElementById('dUrl').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();directGen();}
+});
+document.getElementById('dUrl').addEventListener('paste',function(){
+  setTimeout(()=>{if(document.getElementById('dUrl').value.trim())directGen();},150);
+});
+
+async function directGen(){
+  const url=(document.getElementById('dUrl').value||'').trim();
+  if(!url){showErr('dErr','Enter a URL first');return}
+  try{new URL(url)}catch{showErr('dErr','Invalid URL — include https://');return}
+  if(!checkCfg()){openSettings();return}
+  setLoad('dBtn','dBtnT','dSpin','&#9670; GENERATING...',true);
+  document.getElementById('dErr').classList.remove('on');
+  document.getElementById('dResult').classList.remove('on');
+  try{
+    const c=getCfg();
+    const res=await fetch(`${c.siteUrl}/api/direct`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-admin-key':c.adminKey},
+      body:JSON.stringify({url})
+    });
+    let data;try{data=await res.json()}catch{throw new Error('Server returned invalid response')}
+    if(res.status===401)throw new Error('Wrong Admin Key — check Settings');
+    if(res.status===400)throw new Error(data.error||'Invalid URL');
+    if(!res.ok)throw new Error(data.error||`Server error (${res.status})`);
+    if(!data.success||!data.protected_url)throw new Error('Incomplete response from server');
+    document.getElementById('dProt').textContent=data.protected_url;
+    document.getElementById('dOrig').textContent=data.original_url;
+    document.getElementById('dResult').classList.add('on');
+    saveHist({orig:url,shortUrl:'',protUrl:data.protected_url,ts:Date.now(),direct:true});
+    document.getElementById('dUrl').value='';
+    document.getElementById('dPreview').style.display='none';
+  }catch(e){showErr('dErr',e.message)}
+  finally{setLoad('dBtn','dBtnT','dSpin','&#9670; GENERATE CLOUDFLARE-PROTECTED LINK',false)}
+}
+function newDirect(){
+  document.getElementById('dResult').classList.remove('on');
+  document.getElementById('dErr').classList.remove('on');
+  document.getElementById('dUrl').value='';
+  document.getElementById('dPreview').style.display='none';
+  document.getElementById('dUrl').focus();
+}
+function directShare(){
+  const u=document.getElementById('dProt').textContent;
+  if(!u)return;
+  if(navigator.share)navigator.share({title:'Protected Link',url:u}).catch(()=>cpv('dProt'));
+  else cpv('dProt');
+}
 
 checkCfg();
 updateCount();
