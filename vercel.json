@@ -1,8 +1,21 @@
 {
   "rewrites": [
-    { "source": "/api/generate", "destination": "/api/generate" },
-    { "source": "/api/verify", "destination": "/api/verify" },
-    { "source": "/token/(.*)", "destination": "/index.html" },
+    {
+      "source": "/api/generate",
+      "destination": "/api/generate"
+    },
+    {
+      "source": "/api/verify",
+      "destination": "/api/verify"
+    },
+    {
+      "source": "/api/direct",
+      "destination": "/api/direct"
+    },
+    {
+      "source": "/token/(.*)",
+      "destination": "/index.html"
+    },
     {
       "source": "/((?!api|token|.*\\..*).*)",
       "destination": "/index.html"
