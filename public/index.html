@@ -503,6 +503,24 @@ function getTokenFromURL(){
   return null;
 }
 
+
+/* ── Stats Tracking ── */
+function trackEvent(type, token, url) {
+  try {
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, token, url: url || '' })
+    }).catch(() => {}); // fire and forget, never block UX
+  } catch(e) {}
+}
+
+// Fire "view" immediately on page load
+(function() {
+  const tok = getTokenFromURL();
+  if (tok) trackEvent('view', tok);
+})();
+
 /* ── State management ── */
 function showState(state){
   document.getElementById('initialState').style.display   = state==='initial'   ? 'block' : 'none';
@@ -560,6 +578,8 @@ window.onTurnstileSuccess = async function(cfToken){
 
     // Stop countdown, start progress animation
     if(window._stopCountdown) window._stopCountdown();
+    // Track successful verification
+    trackEvent('visit', token, data.url);
     startVerify(data.url);
 
   } catch(err) {
