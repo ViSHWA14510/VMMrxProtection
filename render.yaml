@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: vmmrx-protection-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: SITE_URL
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DB_PATH
+        value: /opt/render/project/src/vmmrx_bot.db
