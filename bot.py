@@ -526,7 +526,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def main():
+def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Commands
@@ -550,12 +550,7 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     log.info("VMMrx Bot is starting...")
-    async with app:
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        await app.updater.idle()
-        await app.stop()
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
