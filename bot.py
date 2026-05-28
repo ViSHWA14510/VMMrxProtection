@@ -1,7 +1,7 @@
 """
 VMMrx Protection Bot — Telegram bot for generating protected links.
 Supports lksfy mode, direct (Cloudflare-only) mode, bulk generation,
-and admin-based user authorization.
+admin-based user authorization, and force subscribe.
 """
 
 import os
@@ -30,7 +30,7 @@ from db import (
 )
 from generator import generate_lksfy_link, generate_direct_link
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO,
@@ -38,6 +38,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
+FORCE_SUB_CHANNEL = os.environ.get("FORCE_SUB_CHANNEL", "")  # e.g. @yourchannel
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -56,11 +57,42 @@ def escape(text: str) -> str:
         text = text.replace(ch, f"\\{ch}")
     return text
 
+# ── Force Subscribe ───────────────────────────────────────────────────────────
+
+async def is_subscribed(bot, user_id: int) -> bool:
+    """Returns True if user is member of FORCE_SUB_CHANNEL or no channel is set."""
+    if not FORCE_SUB_CHANNEL:
+        return True
+    try:
+        member = await bot.get_chat_member(FORCE_SUB_CHANNEL, user_id)
+        return member.status in ("member", "administrator", "creator")
+    except Exception:
+        return False
+
+async def send_force_sub_message(update: Update):
+    """Send join prompt with inline buttons."""
+    channel = FORCE_SUB_CHANNEL
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{channel.lstrip('@')}")],
+        [InlineKeyboardButton("✅ I Joined", callback_data="check_sub")],
+    ])
+    await update.effective_message.reply_text(
+        "⚠️ *You must join our channel to use this bot\\!*\n\n"
+        f"👉 Join: {escape(channel)}\n\n"
+        "After joining tap *✅ I Joined* below\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+    )
+
 # ── /start ────────────────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     save_user(user.id, user.username or "", user.full_name or "")
+
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
 
     welcome = (
         "⚡ *Welcome to VMMrx Protection Bot* ⚡\n\n"
@@ -102,6 +134,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
     if not is_approved(user.id):
         await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
         return
@@ -110,10 +145,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📖 *VMMrx Bot — Help Guide*\n\n"
         "*🔗 Mode 1 — lksfy \\+ Protect* `/lksfy`\n"
         "Links are first shortened via *lksfy* then wrapped with Cloudflare protection\\.\n"
-        "You receive: `lksfy link` \\+ `protected link`\n\n"
+        "You receive: `Original link` \\+ `lksfy link` \\+ `protected link`\n\n"
         "*🛡️ Mode 2 — Direct Protect* `/direct`\n"
         "Links are protected directly via Cloudflare — *no shortener*\\.\n"
-        "You receive: `protected link` \\+ `original link`\n\n"
+        "You receive: `Original link` \\+ `protected link`\n\n"
         "*📦 Bulk Mode*\n"
         "Simply paste multiple URLs \\(one per line\\) after choosing a mode\\.\n"
         "All links will be processed at once\\.\n\n"
@@ -128,6 +163,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
     if not is_approved(user.id):
         await update.message.reply_text("⏳ You're not approved yet.")
         return
@@ -143,6 +181,9 @@ async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
     if not is_approved(user.id):
         await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
         return
@@ -150,6 +191,7 @@ async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔗 *lksfy \\+ Protect mode activated\\!*\n\n"
         "Now send me one or more URLs \\(one per line\\) to generate:\n"
+        "• Original link\n"
         "• lksfy shortened link\n"
         "• Cloudflare\\-protected link",
         parse_mode=ParseMode.MARKDOWN_V2,
@@ -159,6 +201,9 @@ async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
     if not is_approved(user.id):
         await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
         return
@@ -166,8 +211,8 @@ async def cmd_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🛡️ *Direct Protect mode activated\\!*\n\n"
         "Now send me one or more URLs \\(one per line\\) to generate:\n"
-        "• Cloudflare\\-protected link\n"
-        "• Original link",
+        "• Original link\n"
+        "• Cloudflare\\-protected link",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -176,6 +221,10 @@ async def cmd_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     save_user(user.id, user.username or "", user.full_name or "")
+
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
 
     if not is_approved(user.id):
         await update.message.reply_text(
@@ -201,12 +250,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     urls = extract_urls(text)
 
     if not urls:
-        await update.message.reply_text("❌ No valid URLs found\\. Please send URLs starting with `http://` or `https://`\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            "❌ No valid URLs found\\. Please send URLs starting with `http://` or `https://`\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
         return
 
     is_bulk = len(urls) > 1
     processing_msg = await update.message.reply_text(
-        f"⚙️ Processing {'*' + str(len(urls)) + ' links*' if is_bulk else '*1 link*'}\\.\\.\\.",
+        f"⚙️ Processing *{len(urls)} link{'s' if is_bulk else ''}*\\.\\.\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -239,9 +291,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await processing_msg.delete()
 
-    # ── Build one reply per result, always replying to the user's original message ──
+    # ── Build result cards ────────────────────────────────────────────────────
+
     def build_result_msg(r: dict, total: int) -> str:
-        """Format a single result card. Includes link index only when bulk."""
         prefix = f"🔢 *Link {r['index']} of {total}*\n\n" if total > 1 else ""
         if r["mode"] == "lksfy":
             return (
@@ -258,23 +310,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     def build_error_msg(e: dict, total: int) -> str:
-        prefix = f"🔢 *Link {e['index']} of {total}*\n" if total > 1 else ""
-        preview = escape(e["url"][:60] + ("…" if len(e["url"]) > 60 else ""))
+        prefix = f"🔢 *Link {e['index']} of {total}*\n\n" if total > 1 else ""
         return (
             f"{prefix}"
             f"❌ *Failed to generate link*\n\n"
-            f"📎 *Your URL:* `{preview}`\n"
+            f"🌐 *Your URL:* `{escape(e['url'])}`\n"
             f"⚠️ Error: {escape(e['error'])}"
         )
 
     total = len(urls)
 
-    # Send each result as a separate reply to the user's original message
     for r in results:
         await update.message.reply_text(
             build_result_msg(r, total),
             parse_mode=ParseMode.MARKDOWN_V2,
-            # reply_to_message_id threads every response back to the user's input
             reply_to_message_id=update.message.message_id,
         )
 
@@ -306,7 +355,11 @@ async def notify_admins_new_user(context: ContextTypes.DEFAULT_TYPE, user):
     ])
     for admin_id in admin_ids:
         try:
-            await context.bot.send_message(admin_id, text, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+            await context.bot.send_message(
+                admin_id, text,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=keyboard,
+            )
         except Exception as e:
             log.warning(f"Could not notify admin {admin_id}: {e}")
 
@@ -331,7 +384,11 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton(f"❌ Deny {u['user_id']}", callback_data=f"deny:{u['user_id']}"),
         ])
     keyboard = InlineKeyboardMarkup(buttons)
-    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+    await update.message.reply_text(
+        "\n".join(lines),
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+    )
 
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -349,11 +406,16 @@ async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     approve_user(target_id)
     info = get_user_info(target_id)
     name = escape(info.get("full_name", "Unknown")) if info else str(target_id)
-    await update.message.reply_text(f"✅ User {name} \\(`{target_id}`\\) has been *approved*\\.", parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(
+        f"✅ User {name} \\(`{target_id}`\\) has been *approved*\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
     try:
         await context.bot.send_message(
             target_id,
-            "🎉 *Your access has been approved\\!*\n\nYou can now generate protected links\\.\nUse `/lksfy` or `/direct` to get started\\.",
+            "🎉 *Your access has been approved\\!*\n\n"
+            "You can now generate protected links\\.\n"
+            "Use `/lksfy` or `/direct` to get started\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
     except Exception as e:
@@ -373,9 +435,15 @@ async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Invalid user ID\\.", parse_mode=ParseMode.MARKDOWN_V2)
         return
     revoke_user(target_id)
-    await update.message.reply_text(f"🚫 User `{target_id}` access has been *revoked*\\.", parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(
+        f"🚫 User `{target_id}` access has been *revoked*\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
     try:
-        await context.bot.send_message(target_id, "⛔ Your access to this bot has been revoked by an admin.")
+        await context.bot.send_message(
+            target_id,
+            "⛔ Your access to this bot has been revoked by an admin.",
+        )
     except Exception:
         pass
 
@@ -395,14 +463,29 @@ async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"• {escape(u.get('full_name','?'))} \\| {escape(uname)} \\| `{u['user_id']}`")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
 
-# ── Inline button callbacks (approve/deny) ────────────────────────────────────
+# ── Inline button callbacks ───────────────────────────────────────────────────
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    admin = query.from_user
+    user = query.from_user
     await query.answer()
 
-    if not is_admin(admin.id):
+    # ── "I Joined" button for force subscribe ──
+    if query.data == "check_sub":
+        if await is_subscribed(context.bot, user.id):
+            await query.edit_message_text(
+                "✅ *Thanks for joining\\! You can now use the bot\\.*\n\nSend /start to begin\\.",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        else:
+            await query.answer(
+                "❌ You haven't joined yet! Please join and try again.",
+                show_alert=True,
+            )
+        return
+
+    # ── Approve / Deny buttons (admin only) ──
+    if not is_admin(user.id):
         await query.answer("🚫 Not authorized.", show_alert=True)
         return
 
@@ -420,7 +503,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 target_id,
-                "🎉 *Your access has been approved\\!*\n\nYou can now generate protected links\\.\nUse `/lksfy` or `/direct` to get started\\.",
+                "🎉 *Your access has been approved\\!*\n\n"
+                "You can now generate protected links\\.\n"
+                "Use `/lksfy` or `/direct` to get started\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception:
@@ -432,13 +517,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         try:
-            await context.bot.send_message(target_id, "⛔ Your access request was denied by an admin.")
+            await context.bot.send_message(
+                target_id,
+                "⛔ Your access request was denied by an admin.",
+            )
         except Exception:
             pass
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
+async def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Commands
@@ -453,13 +541,21 @@ def main():
     app.add_handler(CommandHandler("users", cmd_users))
 
     # Inline buttons
-    app.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^(approve|deny):\d+$"))
+    app.add_handler(CallbackQueryHandler(
+        handle_callback,
+        pattern=r"^(approve|deny):\d+$|^check_sub$",
+    ))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     log.info("VMMrx Bot is starting...")
-    app.run_polling(drop_pending_updates=True)
+    async with app:
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(drop_pending_updates=True)
+        await app.updater.idle()
+        await app.stop()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
