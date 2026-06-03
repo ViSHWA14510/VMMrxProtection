@@ -17,17 +17,6 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ParseMode
-from db import (
-    is_approved,
-    is_admin,
-    approve_user,
-    revoke_user,
-    get_pending_users,
-    add_pending_user,
-    get_all_users,
-    get_user_info,
-    save_user,
-)
 from generator import generate_lksfy_link, generate_direct_link
 
 # ── Logging ───────────────────────────────────────────────────────────────────
