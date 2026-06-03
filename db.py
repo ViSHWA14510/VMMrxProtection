@@ -17,6 +17,17 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ParseMode
+from db import (
+    is_approved,
+    is_admin,
+    approve_user,
+    revoke_user,
+    get_pending_users,
+    add_pending_user,
+    get_all_users,
+    get_user_info,
+    save_user,
+)
 from generator import generate_lksfy_link, generate_direct_link
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -251,52 +262,133 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
-    results = []
+    # ── Generate protected URLs for all links ─────────────────────────────────
+
+    url_map: dict[str, dict] = {}   # original_url -> full API response data
     errors = []
 
     for i, url in enumerate(urls, 1):
         try:
             if mode == "lksfy":
                 data = await generate_lksfy_link(url)
-                results.append({
-                    "index": i,
-                    "url": url,
-                    "short_url": data["short_url"],
-                    "protected_url": data["protected_url"],
-                    "mode": "lksfy",
-                })
+                url_map[url] = data   # has: short_url, protected_url
             else:
                 data = await generate_direct_link(url)
-                results.append({
-                    "index": i,
-                    "url": url,
-                    "protected_url": data["protected_url"],
-                    "original_url": data["original_url"],
-                    "mode": "direct",
-                })
+                url_map[url] = data   # has: protected_url, original_url
         except Exception as e:
             log.warning(f"Error processing {url}: {e}")
             errors.append({"index": i, "url": url, "error": str(e)})
 
     await processing_msg.delete()
 
-    # ── Build result cards (single link) ─────────────────────────────────────
+    # ── Bulk mode: reply with original text, URLs swapped, formatting kept ────
 
-    def build_result_msg(r: dict) -> str:
+    if is_bulk:
+        # Replace each original URL in the raw text with its protected version
+        converted_text = text
+        for orig_url, data in url_map.items():
+            converted_text = converted_text.replace(orig_url, data["protected_url"])
+
+        # Re-apply Telegram entities (bold, italic, etc.) from the original message,
+        # adjusting offsets to account for URL length changes.
+        entities = update.message.entities or []
+        from telegram import MessageEntity
+
+        # Build adjusted entities: shift offsets for any entity that comes after
+        # a replaced URL (since URL lengths may differ).
+        # Map of (original offset in original text) -> delta at that point
+        # We process replacements in order of appearance.
+        # Simpler approach: rebuild entity list based on new text positions.
+        adjusted_entities = []
+
+        # For each entity, find its text in the original, locate it in the new text.
+        # Since only URLs changed, non-URL entities' surrounding text is unchanged.
+        for ent in entities:
+            # Extract the entity text from the original (UTF-16 offsets)
+            ent_text_orig = text.encode("utf-16-le")[ent.offset*2:(ent.offset+ent.length)*2].decode("utf-16-le")
+
+            # Skip URL entities — those are the replaced links; we don't re-attach them
+            if ent.type == MessageEntity.URL:
+                continue
+
+            # Find this entity text in the converted text at roughly the same position
+            # (non-URL text didn't change, so a simple search from near the same offset works)
+            search_start = max(0, ent.offset - 20)
+            new_text_segment = converted_text[search_start:]
+            pos = new_text_segment.find(ent_text_orig)
+            if pos == -1:
+                # Fallback: search full text
+                pos_full = converted_text.find(ent_text_orig)
+                if pos_full == -1:
+                    continue
+                new_offset = pos_full
+            else:
+                new_offset = search_start + pos
+
+            adjusted_entities.append(
+                MessageEntity(
+                    type=ent.type,
+                    offset=new_offset,
+                    length=ent.length,
+                    url=ent.url if hasattr(ent, "url") else None,
+                    user=ent.user if hasattr(ent, "user") else None,
+                    language=ent.language if hasattr(ent, "language") else None,
+                    custom_emoji_id=ent.custom_emoji_id if hasattr(ent, "custom_emoji_id") else None,
+                )
+            )
+
+        await update.message.reply_text(
+            converted_text,
+            entities=adjusted_entities if adjusted_entities else None,
+        )
+
+        # Report any errors separately
+        for e in errors:
+            await update.message.reply_text(
+                f"❌ *Failed:* `{escape(e['url'])}`\n⚠️ {escape(e['error'])}",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        return
+
+    # ── Single link mode: show original result cards ──────────────────────────
+
+    results = []
+    for i, (url, data) in enumerate(url_map.items(), 1):
+        if mode == "lksfy":
+            results.append({
+                "index": i, "url": url,
+                "short_url": data["short_url"],
+                "protected_url": data["protected_url"],
+                "mode": "lksfy",
+            })
+        else:
+            results.append({
+                "index": i, "url": url,
+                "protected_url": data["protected_url"],
+                "original_url": url,
+                "mode": "direct",
+            })
+
+    def build_result_msg(r: dict, total: int) -> str:
+        prefix = f"🔢 *Link {r['index']} of {total}*\n\n" if total > 1 else ""
         if r["mode"] == "lksfy":
             return (
+                f"{prefix}"
                 f"🌐 *Original Link:*\n`{escape(r['url'])}`\n\n"
                 f"🔗 *LKSFY Link:*\n`{escape(r['short_url'])}`\n\n"
                 f"🛡️ *Protected Link:*\n`{escape(r['protected_url'])}`"
             )
         else:
             return (
+                f"{prefix}"
                 f"🌐 *Original Link:*\n`{escape(r['original_url'])}`\n\n"
                 f"🛡️ *Protected Link:*\n`{escape(r['protected_url'])}`"
             )
 
-    def build_error_msg(e: dict) -> str:
+    def build_error_msg(e: dict, total: int) -> str:
+        prefix = f"🔢 *Link {e['index']} of {total}*\n\n" if total > 1 else ""
         return (
+            f"{prefix}"
             f"❌ *Failed to generate link*\n\n"
             f"🌐 *Your URL:* `{escape(e['url'])}`\n"
             f"⚠️ Error: {escape(e['error'])}"
@@ -304,48 +396,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total = len(urls)
 
-    if not is_bulk:
-        # ── Single link — send individual card as before ──────────────────────
-        if results:
-            await update.message.reply_text(
-                build_result_msg(results[0]),
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_to_message_id=update.message.message_id,
-            )
-        if errors:
-            await update.message.reply_text(
-                build_error_msg(errors[0]),
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_to_message_id=update.message.message_id,
-            )
-    else:
-        # ── Bulk mode — rebuild original text with protected URLs in place ────
-        # Build a map: original_url -> protected_url (or error marker)
-        url_map = {}
-        for r in results:
-            # Use lksfy short_url as the replacement in lksfy mode,
-            # protected_url in direct mode
-            url_map[r["url"]] = r["protected_url"] if r["mode"] == "direct" else r["protected_url"]
-        for e in errors:
-            url_map[e["url"]] = e["url"]  # keep original on failure
-
-        # Replace each original URL in the text with the protected URL
-        replaced_text = text
-        for original_url, protected_url in url_map.items():
-            replaced_text = replaced_text.replace(original_url, protected_url)
-
+    for r in results:
         await update.message.reply_text(
-            replaced_text,
+            build_result_msg(r, total),
+            parse_mode=ParseMode.MARKDOWN_V2,
             reply_to_message_id=update.message.message_id,
         )
 
-        # Report any errors separately
-        for e in errors:
-            await update.message.reply_text(
-                build_error_msg(e),
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_to_message_id=update.message.message_id,
-            )
+    for e in errors:
+        await update.message.reply_text(
+            build_error_msg(e, total),
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_to_message_id=update.message.message_id,
+        )
 
 # ── Admin: notify on new user ─────────────────────────────────────────────────
 
