@@ -5,6 +5,10 @@
       "destination": "/api/generate"
     },
     {
+      "source": "/api/resolve",
+      "destination": "/api/resolve"
+    },
+    {
       "source": "/api/verify",
       "destination": "/api/verify"
     },
@@ -22,6 +26,10 @@
     },
     {
       "source": "/token/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/s/(.*)",
       "destination": "/index.html"
     },
     {
