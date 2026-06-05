@@ -495,12 +495,44 @@ body::after{
 })();
 
 /* ── Token extraction helper ── */
-// FIX: Robust token extraction — handles trailing slashes and query strings
-function getTokenFromURL(){
+// Handles both /token/<long-token> (legacy) and /s/<short-code> (new)
+// Returns: { token: string, isShort: bool } or null
+function getTokenInfoFromURL(){
   const path = window.location.pathname;
-  const match = path.match(/\/token\/(.+)/);
-  if(match && match[1]) return match[1].split('?')[0].replace(/\/$/, '');
+  const legacyMatch = path.match(/\/token\/(.+)/);
+  if(legacyMatch && legacyMatch[1]){
+    return { token: legacyMatch[1].split('?')[0].replace(/\/$/, ''), isShort: false };
+  }
+  const shortMatch = path.match(/\/s\/([^/?]+)/);
+  if(shortMatch && shortMatch[1]){
+    return { token: shortMatch[1], isShort: true };
+  }
   return null;
+}
+
+// Legacy shim — returns the token string directly (for tracking & verify calls)
+function getTokenFromURL(){
+  const info = getTokenInfoFromURL();
+  return info ? info.token : null;
+}
+
+// If the URL is a short code, resolve it to a full token via /api/resolve
+async function resolveToken(){
+  const info = getTokenInfoFromURL();
+  if(!info) return null;
+  if(!info.isShort) return info.token;  // already a full token
+
+  const res = await fetch('/api/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: info.token })
+  });
+  if(!res.ok){
+    throw new Error('Short link not found or expired.');
+  }
+  const data = await res.json();
+  if(!data.token) throw new Error('Could not resolve short link.');
+  return data.token;
 }
 
 
@@ -551,8 +583,14 @@ window.onTurnstileSuccess = async function(cfToken){
   statusEl.textContent = '✓ Human verified! Validating secure token...';
   statusEl.classList.add('success');
 
-  // FIX: Get token from URL using robust helper
-  const token = getTokenFromURL();
+  // Resolve short code (/s/CODE) or use full token (/token/...)
+  let token;
+  try {
+    token = await resolveToken();
+  } catch(err) {
+    showError(err.message || 'Could not resolve this link. It may be expired or invalid.');
+    return;
+  }
 
   if(!token){
     showError('Destination URL is missing. This link may be invalid or expired.');
