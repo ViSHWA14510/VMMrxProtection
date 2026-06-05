@@ -246,12 +246,16 @@ html,body{min-height:100vh;background:var(--c0);color:var(--text);font-family:'R
         </div>
         <div class="rrow">
           <div class="stag">&#10022; SHARE THIS LINK</div>
-          <div class="rlbl">Protected URL</div>
-          <div class="rbox hi" onclick="cpv('sProt')"><span class="rtxt" id="sProt"></span><span class="cico">&#128203;</span></div>
+          <div class="rlbl">Short Protected URL <span style="font-size:10px;opacity:.6">(new)</span></div>
+          <div class="rbox hi" onclick="cpv('sProtShort')"><span class="rtxt" id="sProtShort"></span><span class="cico">&#128203;</span></div>
+        </div>
+        <div class="rrow">
+          <div class="rlbl">Long Protected URL <span style="font-size:10px;opacity:.6">(legacy)</span></div>
+          <div class="rbox" onclick="cpv('sProt')"><span class="rtxt" id="sProt"></span><span class="cico">&#128203;</span></div>
         </div>
         <div class="ract">
-          <button class="abtn" onclick="cpv('sProt')">&#128203; Copy Protected</button>
-          <button class="abtn" onclick="shareIt()">&#8599; Share</button>
+          <button class="abtn" onclick="cpv('sProtShort')">&#128203; Copy Short</button>
+          <button class="abtn" onclick="shareItShort()">&#8599; Share</button>
           <button class="abtn" onclick="newSingle()">&#43; New Link</button>
           <button class="abtn" onclick="setMode('bulk')">&#9632;&#9632; Bulk Mode</button>
         </div>
@@ -446,14 +450,16 @@ async function singleGen(){
     const d=await callGen(url);
     document.getElementById('sShort').textContent=d.short_url;
     document.getElementById('sProt').textContent=d.protected_url;
+    document.getElementById('sProtShort').textContent=d.short_protected_url||d.protected_url;
     document.getElementById('sResult').classList.add('on');
-    saveHist({orig:url,shortUrl:d.short_url,protUrl:d.protected_url,ts:Date.now()});
+    saveHist({orig:url,shortUrl:d.short_url,protUrl:d.protected_url,shortProtUrl:d.short_protected_url,ts:Date.now()});
     document.getElementById('sUrl').value='';
   }catch(e){showErr('sErr',e.message)}
   finally{setLoad('sBtn','sBtnT','sSpin','&#9632; GENERATE PROTECTED LINK',false)}
 }
 function newSingle(){document.getElementById('sResult').classList.remove('on');document.getElementById('sErr').classList.remove('on');document.getElementById('sUrl').value='';document.getElementById('sUrl').focus()}
 function shareIt(){const u=document.getElementById('sProt').textContent;if(!u)return;if(navigator.share)navigator.share({title:'Protected Link',url:u}).catch(()=>cpv('sProt'));else cpv('sProt')}
+function shareItShort(){const u=document.getElementById('sProtShort').textContent||document.getElementById('sProt').textContent;if(!u)return;if(navigator.share)navigator.share({title:'Protected Link',url:u}).catch(()=>cpv('sProtShort'));else cpv('sProtShort')}
 
 // ── Bulk ──
 let bData=[];
@@ -557,7 +563,7 @@ function renderHist(){
     </div>`).join('');
 }
 
-function loadHist(idx){const h=getHist();const item=h[idx];if(!item)return;setMode('single');document.getElementById('sShort').textContent=item.shortUrl||'';document.getElementById('sProt').textContent=item.protUrl||'';document.getElementById('sResult').classList.add('on')}
+function loadHist(idx){const h=getHist();const item=h[idx];if(!item)return;setMode('single');document.getElementById('sShort').textContent=item.shortUrl||'';document.getElementById('sProt').textContent=item.protUrl||'';document.getElementById('sProtShort').textContent=item.shortProtUrl||item.protUrl||'';document.getElementById('sResult').classList.add('on')}
 function delHist(idx){try{const h=getHist();h.splice(idx,1);localStorage.setItem('vmx-history',JSON.stringify(h));renderHist();toast('&#10005; Deleted')}catch{}}
 
 // ── URL listeners ──
