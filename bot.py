@@ -256,9 +256,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    is_bulk = len(urls) > 1
     processing_msg = await update.message.reply_text(
-        f"⚙️ Processing *{len(urls)} link{'s' if is_bulk else ''}*\\.\\.\\.",
+        f"⚙️ Processing *{len(urls)} link{'s' if len(urls) > 1 else ''}*\\.\\.\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -281,137 +280,76 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await processing_msg.delete()
 
-    # ── Bulk mode: reply with original text, URLs swapped, formatting kept ────
+    # ── All messages: reply with original text, URLs swapped, formatting kept ──
+    # (applies to both single and bulk — text + formatting is always preserved)
 
-    if is_bulk:
-        # Replace each original URL in the raw text with its short protected version
-        converted_text = text
-        for orig_url, data in url_map.items():
-            new_url = data.get("short_protected_url") or data["protected_url"]
-            converted_text = converted_text.replace(orig_url, new_url)
+    # Replace each original URL in the raw text with its short protected version
+    converted_text = text
+    for orig_url, data in url_map.items():
+        new_url = data.get("short_protected_url") or data["protected_url"]
+        converted_text = converted_text.replace(orig_url, new_url)
 
-        # Re-apply Telegram entities (bold, italic, etc.) from the original message,
-        # adjusting offsets to account for URL length changes.
-        entities = update.message.entities or []
-        from telegram import MessageEntity
+    # Re-apply Telegram entities (bold, italic, etc.) from the original message,
+    # adjusting offsets to account for URL length changes.
+    entities = update.message.entities or []
+    from telegram import MessageEntity
 
-        # Build adjusted entities: shift offsets for any entity that comes after
-        # a replaced URL (since URL lengths may differ).
-        # Map of (original offset in original text) -> delta at that point
-        # We process replacements in order of appearance.
-        # Simpler approach: rebuild entity list based on new text positions.
-        adjusted_entities = []
+    # Build adjusted entities: shift offsets for any entity that comes after
+    # a replaced URL (since URL lengths may differ).
+    # Map of (original offset in original text) -> delta at that point
+    # We process replacements in order of appearance.
+    # Simpler approach: rebuild entity list based on new text positions.
+    adjusted_entities = []
 
-        # For each entity, find its text in the original, locate it in the new text.
-        # Since only URLs changed, non-URL entities' surrounding text is unchanged.
-        for ent in entities:
-            # Extract the entity text from the original (UTF-16 offsets)
-            ent_text_orig = text.encode("utf-16-le")[ent.offset*2:(ent.offset+ent.length)*2].decode("utf-16-le")
+    # For each entity, find its text in the original, locate it in the new text.
+    # Since only URLs changed, non-URL entities' surrounding text is unchanged.
+    for ent in entities:
+        # Extract the entity text from the original (UTF-16 offsets)
+        ent_text_orig = text.encode("utf-16-le")[ent.offset*2:(ent.offset+ent.length)*2].decode("utf-16-le")
 
-            # Skip URL entities — those are the replaced links; we don't re-attach them
-            if ent.type == MessageEntity.URL:
+        # Skip URL entities — those are the replaced links; we don't re-attach them
+        if ent.type == MessageEntity.URL:
+            continue
+
+        # Find this entity text in the converted text at roughly the same position
+        # (non-URL text didn't change, so a simple search from near the same offset works)
+        search_start = max(0, ent.offset - 20)
+        new_text_segment = converted_text[search_start:]
+        pos = new_text_segment.find(ent_text_orig)
+        if pos == -1:
+            # Fallback: search full text
+            pos_full = converted_text.find(ent_text_orig)
+            if pos_full == -1:
                 continue
-
-            # Find this entity text in the converted text at roughly the same position
-            # (non-URL text didn't change, so a simple search from near the same offset works)
-            search_start = max(0, ent.offset - 20)
-            new_text_segment = converted_text[search_start:]
-            pos = new_text_segment.find(ent_text_orig)
-            if pos == -1:
-                # Fallback: search full text
-                pos_full = converted_text.find(ent_text_orig)
-                if pos_full == -1:
-                    continue
-                new_offset = pos_full
-            else:
-                new_offset = search_start + pos
-
-            adjusted_entities.append(
-                MessageEntity(
-                    type=ent.type,
-                    offset=new_offset,
-                    length=ent.length,
-                    url=ent.url if hasattr(ent, "url") else None,
-                    user=ent.user if hasattr(ent, "user") else None,
-                    language=ent.language if hasattr(ent, "language") else None,
-                    custom_emoji_id=ent.custom_emoji_id if hasattr(ent, "custom_emoji_id") else None,
-                )
-            )
-
-        await update.message.reply_text(
-            converted_text,
-            entities=adjusted_entities if adjusted_entities else None,
-        )
-
-        # Report any errors separately
-        for e in errors:
-            await update.message.reply_text(
-                f"❌ *Failed:* `{escape(e['url'])}`\n⚠️ {escape(e['error'])}",
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-        return
-
-    # ── Single link mode: show original result cards ──────────────────────────
-
-    results = []
-    for i, (url, data) in enumerate(url_map.items(), 1):
-        if mode == "lksfy":
-            results.append({
-                "index": i, "url": url,
-                "short_url": data["short_url"],
-                "protected_url": data["protected_url"],
-                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
-                "mode": "lksfy",
-            })
+            new_offset = pos_full
         else:
-            results.append({
-                "index": i, "url": url,
-                "protected_url": data["protected_url"],
-                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
-                "original_url": url,
-                "mode": "direct",
-            })
+            new_offset = search_start + pos
 
-    def build_result_msg(r: dict, total: int) -> str:
-        prefix = f"🔢 *Link {r['index']} of {total}*\n\n" if total > 1 else ""
-        if r["mode"] == "lksfy":
-            return (
-                f"{prefix}"
-                f"🌐 *Original Link:*\n`{escape(r['url'])}`\n\n"
-                f"🔗 *LKSFY Link:*\n`{escape(r['short_url'])}`\n\n"
-                f"🛡️ *Protected Link:*\n`{escape(r.get('short_protected_url') or r['protected_url'])}`"
+        adjusted_entities.append(
+            MessageEntity(
+                type=ent.type,
+                offset=new_offset,
+                length=ent.length,
+                url=ent.url if hasattr(ent, "url") else None,
+                user=ent.user if hasattr(ent, "user") else None,
+                language=ent.language if hasattr(ent, "language") else None,
+                custom_emoji_id=ent.custom_emoji_id if hasattr(ent, "custom_emoji_id") else None,
             )
-        else:
-            return (
-                f"{prefix}"
-                f"🌐 *Original Link:*\n`{escape(r['original_url'])}`\n\n"
-                f"🛡️ *Protected Link:*\n`{escape(r.get('short_protected_url') or r['protected_url'])}`"
-            )
-
-    def build_error_msg(e: dict, total: int) -> str:
-        prefix = f"🔢 *Link {e['index']} of {total}*\n\n" if total > 1 else ""
-        return (
-            f"{prefix}"
-            f"❌ *Failed to generate link*\n\n"
-            f"🌐 *Your URL:* `{escape(e['url'])}`\n"
-            f"⚠️ Error: {escape(e['error'])}"
         )
 
-    total = len(urls)
+    await update.message.reply_text(
+        converted_text,
+        entities=adjusted_entities if adjusted_entities else None,
+    )
 
-    for r in results:
-        await update.message.reply_text(
-            build_result_msg(r, total),
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_to_message_id=update.message.message_id,
-        )
-
+    # Report any errors separately
     for e in errors:
         await update.message.reply_text(
-            build_error_msg(e, total),
+            f"❌ *Failed:* `{escape(e['url'])}`\n⚠️ {escape(e['error'])}",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_to_message_id=update.message.message_id,
         )
+    return
+
 
 # ── Admin: notify on new user ─────────────────────────────────────────────────
 
