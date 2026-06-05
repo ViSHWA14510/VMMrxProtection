@@ -342,6 +342,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         entities=adjusted_entities if adjusted_entities else None,
     )
 
+    # ── Copyable protected links ──────────────────────────────────────────────
+    copy_lines = []
+    for i, (orig_url, data) in enumerate(url_map.items(), 1):
+        new_url = data.get("short_protected_url") or data["protected_url"]
+        label = f"🔗 Link {i}" if len(url_map) > 1 else "🔗 Protected Link"
+        copy_lines.append(f"{label}\n`{escape(new_url)}`")
+
+    if copy_lines:
+        await update.message.reply_text(
+            "\n\n".join(copy_lines),
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
     # Report any errors separately
     for e in errors:
         await update.message.reply_text(
