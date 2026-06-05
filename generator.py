@@ -37,6 +37,7 @@ async def generate_lksfy_link(url: str) -> dict:
             return {
                 "short_url": data["short_url"],
                 "protected_url": data["protected_url"],
+                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
             }
 
 
@@ -56,5 +57,6 @@ async def generate_direct_link(url: str) -> dict:
                 raise ValueError(data.get("error", f"API error {resp.status}"))
             return {
                 "protected_url": data["protected_url"],
+                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
                 "original_url": data["original_url"],
             }
