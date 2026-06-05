@@ -1,5 +1,32 @@
 import crypto from "crypto";
 
+// ── Short-code helpers ─────────────────────────────────────────────
+let kv = null;
+async function getKV() {
+  if (kv) return kv;
+  try { const mod = await import("@vercel/kv"); kv = mod.kv; return kv; }
+  catch { return null; }
+}
+const mem = {};
+
+function generateCode(len = 8) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from(crypto.randomBytes(len))
+    .map(b => chars[b % chars.length])
+    .join("");
+}
+
+async function storeShortCode(code, token) {
+  const kvKey = `short:${code}`;
+  const db = await getKV();
+  if (db) {
+    await db.set(kvKey, token);
+  } else {
+    mem[kvKey] = token;
+  }
+}
+// ──────────────────────────────────────────────────────────────────
+
 function sign(data, secret) {
   return crypto.createHmac("sha256", secret).update(data).digest("hex");
 }
@@ -65,11 +92,17 @@ export default async function handler(req, res) {
     const token = `${payload}.${signature}`;
 
     const siteUrl = process.env.SITE_URL.replace(/\/$/, "");
-    const protectedUrl = `${siteUrl}/token/${token}`;
+    const protectedUrl = `${siteUrl}/token/${token}`;  // legacy — kept forever
+
+    // Generate a short code and store the mapping code → token
+    const code = generateCode(8);
+    await storeShortCode(code, token);
+    const shortProtectedUrl = `${siteUrl}/s/${code}`;
 
     return res.status(200).json({
       success: true,
-      protected_url: protectedUrl,
+      protected_url: protectedUrl,           // old long format (still works)
+      short_protected_url: shortProtectedUrl, // new short format
       original_url: url.trim()
     });
 
