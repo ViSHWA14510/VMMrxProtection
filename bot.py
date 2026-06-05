@@ -284,10 +284,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── Bulk mode: reply with original text, URLs swapped, formatting kept ────
 
     if is_bulk:
-        # Replace each original URL in the raw text with its protected version
+        # Replace each original URL in the raw text with its short protected version
         converted_text = text
         for orig_url, data in url_map.items():
-            converted_text = converted_text.replace(orig_url, data["protected_url"])
+            new_url = data.get("short_protected_url") or data["protected_url"]
+            converted_text = converted_text.replace(orig_url, new_url)
 
         # Re-apply Telegram entities (bold, italic, etc.) from the original message,
         # adjusting offsets to account for URL length changes.
@@ -359,12 +360,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "index": i, "url": url,
                 "short_url": data["short_url"],
                 "protected_url": data["protected_url"],
+                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
                 "mode": "lksfy",
             })
         else:
             results.append({
                 "index": i, "url": url,
                 "protected_url": data["protected_url"],
+                "short_protected_url": data.get("short_protected_url") or data["protected_url"],
                 "original_url": url,
                 "mode": "direct",
             })
@@ -376,13 +379,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{prefix}"
                 f"🌐 *Original Link:*\n`{escape(r['url'])}`\n\n"
                 f"🔗 *LKSFY Link:*\n`{escape(r['short_url'])}`\n\n"
-                f"🛡️ *Protected Link:*\n`{escape(r['protected_url'])}`"
+                f"🛡️ *Protected Link:*\n`{escape(r.get('short_protected_url') or r['protected_url'])}`"
             )
         else:
             return (
                 f"{prefix}"
                 f"🌐 *Original Link:*\n`{escape(r['original_url'])}`\n\n"
-                f"🛡️ *Protected Link:*\n`{escape(r['protected_url'])}`"
+                f"🛡️ *Protected Link:*\n`{escape(r.get('short_protected_url') or r['protected_url'])}`"
             )
 
     def build_error_msg(e: dict, total: int) -> str:
