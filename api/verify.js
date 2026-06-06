@@ -4,10 +4,6 @@ function sign(data, secret) {
   return crypto.createHmac("sha256", secret).update(data).digest("hex");
 }
 
-// Short tokens use a 32-char (128-bit) HMAC instead of 64-char
-function signShort(data, secret) {
-  return crypto.createHmac("sha256", secret).update(data).digest("hex").slice(0, 32);
-}
 
 // FIX: Timing-safe comparison to prevent HMAC timing attacks
 function safeEqual(a, b) {
@@ -84,38 +80,21 @@ export default async function handler(req, res) {
 
   // ── Step 2: Validate signed token ──
   try {
-    // Legacy /token/ uses dot separator with 64-char HMAC: payload.sig
-    // Short  /s/     uses dash separator with 32-char HMAC: payload-sig
-    // Detect which format by checking for dash-separated 32-char suffix first.
-    let payload, signature;
-
-    const dashIndex = token.lastIndexOf("-");
-    const dotIndex  = token.indexOf(".");
-
-    if (dashIndex !== -1 && token.length - dashIndex - 1 === 32) {
-      // Short token format: payload-sig (32-char HMAC)
-      payload   = token.substring(0, dashIndex);
-      signature = token.substring(dashIndex + 1);
-    } else if (dotIndex !== -1) {
-      // Legacy token format: payload.sig (64-char HMAC)
-      payload   = token.substring(0, dotIndex);
-      signature = token.substring(dotIndex + 1);
-    } else {
+    // FIX: Validate token format before splitting
+    const dotIndex = token.indexOf(".");
+    if (dotIndex === -1) {
       return res.status(400).json({ error: "Invalid token format" });
     }
+
+    const payload = token.substring(0, dotIndex);
+    const signature = token.substring(dotIndex + 1);
 
     if (!payload || !signature) {
       return res.status(400).json({ error: "Invalid token format" });
     }
 
-    // Accept both full 64-char HMAC (legacy /token/) and 32-char HMAC (short /s/)
-    const expectedSigFull  = sign(payload, process.env.TOKEN_SECRET);
-    const expectedSigShort = signShort(payload, process.env.TOKEN_SECRET);
-
-    const validFull  = signature.length === 64 && safeEqual(signature, expectedSigFull);
-    const validShort = signature.length === 32 && safeEqual(signature, expectedSigShort);
-
-    if (!validFull && !validShort) {
+    const expectedSig = sign(payload, process.env.TOKEN_SECRET);
+    if (!safeEqual(signature, expectedSig)) {
       return res.status(403).json({ error: "Invalid token signature" });
     }
 
