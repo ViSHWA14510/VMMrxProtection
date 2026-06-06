@@ -2,14 +2,13 @@ import crypto from "crypto";
 
 // ── Upstash Redis helper ───────────────────────────────────────────
 async function redisSet(key, value) {
-  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${key}`;
+  // Upstash REST: POST /set/key/value  (value in URL path, not body)
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(value),
   });
   if (!res.ok) throw new Error("Redis set failed");
 }
