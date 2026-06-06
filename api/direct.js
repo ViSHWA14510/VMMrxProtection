@@ -1,8 +1,23 @@
 import crypto from "crypto";
 
-// ── Short token helper ────────────────────────────────────────────
-function signShort(data, secret) {
-  return crypto.createHmac("sha256", secret).update(data).digest("hex").slice(0, 32);
+// ── Upstash Redis helper ───────────────────────────────────────────
+async function redisSet(key, value) {
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${key}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(value),
+  });
+  if (!res.ok) throw new Error("Redis set failed");
+}
+
+function generateCode(len = 8) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.randomBytes(len);
+  return Array.from(bytes).map(b => chars[b % chars.length]).join("");
 }
 // ──────────────────────────────────────────────────────────────────
 
@@ -73,9 +88,10 @@ export default async function handler(req, res) {
     const siteUrl = process.env.SITE_URL.replace(/\/$/, "");
     const protectedUrl = `${siteUrl}/token/${token}`;  // legacy — kept forever
 
-    const shortSig = signShort(payload, process.env.TOKEN_SECRET);
-    const shortToken = `${payload}-${shortSig}`;
-    const shortProtectedUrl = `${siteUrl}/s/${shortToken}`;
+    // Generate truly short code and store token in Upstash Redis
+    const code = generateCode(8);
+    await redisSet(`short:${code}`, token);
+    const shortProtectedUrl = `${siteUrl}/s/${code}`;
 
     return res.status(200).json({
       success: true,
