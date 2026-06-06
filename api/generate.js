@@ -117,7 +117,7 @@ export default async function handler(req, res) {
     // Short token: same payload, but HMAC trimmed to 32 hex chars.
     // Self-contained — no KV or database needed.
     const shortSig = signShort(payload, process.env.TOKEN_SECRET);
-    const shortToken = `${payload}.${shortSig}`;
+    const shortToken = `${payload}-${shortSig}`;
     const shortProtectedUrl = `${siteUrl}/s/${shortToken}`;
 
     return res.status(200).json({
