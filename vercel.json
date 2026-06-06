@@ -5,10 +5,6 @@
       "destination": "/api/generate"
     },
     {
-      "source": "/api/resolve",
-      "destination": "/api/resolve"
-    },
-    {
       "source": "/api/verify",
       "destination": "/api/verify"
     },
