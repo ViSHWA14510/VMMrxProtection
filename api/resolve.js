@@ -5,12 +5,13 @@ import crypto from "crypto";
 // → 404 { error: "Short link not found or expired" }
 
 async function redisGet(key) {
-  const url = `${process.env.UPSTASH_REDIS_REST_URL}/get/${key}`;
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/get/${encodeURIComponent(key)}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
   });
   if (!res.ok) return null;
   const data = await res.json();
+  // result is the raw string value
   return data.result ?? null;
 }
 
