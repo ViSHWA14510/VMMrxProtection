@@ -84,14 +84,25 @@ export default async function handler(req, res) {
 
   // ── Step 2: Validate signed token ──
   try {
-    // FIX: Validate token format before splitting
-    const dotIndex = token.indexOf(".");
-    if (dotIndex === -1) {
+    // Legacy /token/ uses dot separator with 64-char HMAC: payload.sig
+    // Short  /s/     uses dash separator with 32-char HMAC: payload-sig
+    // Detect which format by checking for dash-separated 32-char suffix first.
+    let payload, signature;
+
+    const dashIndex = token.lastIndexOf("-");
+    const dotIndex  = token.indexOf(".");
+
+    if (dashIndex !== -1 && token.length - dashIndex - 1 === 32) {
+      // Short token format: payload-sig (32-char HMAC)
+      payload   = token.substring(0, dashIndex);
+      signature = token.substring(dashIndex + 1);
+    } else if (dotIndex !== -1) {
+      // Legacy token format: payload.sig (64-char HMAC)
+      payload   = token.substring(0, dotIndex);
+      signature = token.substring(dotIndex + 1);
+    } else {
       return res.status(400).json({ error: "Invalid token format" });
     }
-
-    const payload = token.substring(0, dotIndex);
-    const signature = token.substring(dotIndex + 1);
 
     if (!payload || !signature) {
       return res.status(400).json({ error: "Invalid token format" });
