@@ -516,12 +516,24 @@ function getTokenFromURL(){
   return info ? info.token : null;
 }
 
-// Short /s/ URLs carry the full self-contained token in the path.
-// No API call needed — just return it directly.
+// Short /s/ URLs use a short code stored in Upstash Redis.
+// Call /api/resolve to get the full token back.
 async function resolveToken(){
   const info = getTokenInfoFromURL();
   if(!info) return null;
-  return info.token;  // works for both /token/ and /s/ — token is self-contained
+  if(!info.isShort) return info.token;  // /token/ — already full token
+
+  const res = await fetch('/api/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: info.token })
+  });
+  if(!res.ok){
+    throw new Error('Short link not found or expired.');
+  }
+  const data = await res.json();
+  if(!data.token) throw new Error('Could not resolve short link.');
+  return data.token;
 }
 
 
