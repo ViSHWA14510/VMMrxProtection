@@ -94,32 +94,35 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_force_sub_message(update)
         return
 
+    first_name = escape(user.first_name or "there")
+
     welcome = (
-        "⚡ *Welcome to VMMrx Protection Bot* ⚡\n\n"
-        "I help you generate *Cloudflare\\-protected links* that keep your content safe\\.\n\n"
-        "🔐 *Two powerful modes:*\n"
-        "  🔗 `/lksfy` — Shorten with *lksfy* \\+ Cloudflare protection\n"
-        "  🛡️ `/direct` — *Cloudflare protection only* \\(no shortener\\)\n\n"
-        "📦 *Bulk mode supported\\!* — Paste multiple URLs \\(one per line\\)\n\n"
-        "📋 *Commands:*\n"
-        "  `/start` — Show this message\n"
-        "  `/lksfy` — Switch to lksfy\\+protect mode\n"
-        "  `/direct` — Switch to direct\\-protect mode\n"
-        "  `/mode` — See your current mode\n"
-        "  `/help` — Detailed help\n\n"
+        f"👋 *Hey {first_name}\\! Welcome to VMMrx Protection Bot* 🛡️\n\n"
+        "I protect your links with *Cloudflare* security —\n"
+        "no one can bypass them\\! ⚡\n\n"
+        "🔗 *lksfy mode* — shorten \\+ protect\n"
+        "🛡️ *Direct mode* — protect only, no shortener\n"
+        "📦 *Bulk support* — multiple links at once\n\n"
     )
 
     if is_admin(user.id):
         welcome += (
             "👑 *Admin Commands:*\n"
-            "  `/pending` — View users waiting for approval\n"
+            "  `/pending` — View pending users\n"
             "  `/approve <user\\_id>` — Approve a user\n"
-            "  `/revoke <user\\_id>` — Revoke a user's access\n"
-            "  `/users` — List all approved users\n\n"
+            "  `/revoke <user\\_id>` — Revoke access\n"
+            "  `/users` — List approved users\n\n"
         )
 
     if is_approved(user.id):
         welcome += "✅ *Your account is approved\\. Start generating links\\!*"
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
+                InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
+            ],
+            [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+        ])
     else:
         welcome += (
             "⏳ *Your account is pending admin approval\\.*\n"
@@ -127,8 +130,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await notify_admins_new_user(context, user)
         add_pending_user(user.id, user.username or "", user.full_name or "")
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+        ])
 
-    await update.message.reply_text(welcome, parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(
+        welcome,
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+    )
 
 # ── /help ─────────────────────────────────────────────────────────────────────
 
@@ -143,6 +153,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "📖 *VMMrx Bot — Help Guide*\n\n"
+        "🔐 *Two powerful modes:*\n"
+        "  🔗 `/lksfy` — Shorten with *lksfy* \\+ Cloudflare protection\n"
+        "  🛡️ `/direct` — *Cloudflare protection only* \\(no shortener\\)\n\n"
+        "📦 *Bulk mode supported\\!* — Paste multiple URLs \\(one per line\\)\n\n"
         "*🔗 Mode 1 — lksfy \\+ Protect* `/lksfy`\n"
         "Links are first shortened via *lksfy* then wrapped with Cloudflare protection\\.\n"
         "You receive: `Original link` \\+ `lksfy link` \\+ `protected link`\n\n"
@@ -501,6 +515,46 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
+    # ── Help button ──
+    if query.data == "show_help":
+        help_text = (
+            "📖 *VMMrx Bot — Help Guide*\n\n"
+            "🔐 *Two powerful modes:*\n"
+            "  🔗 `/lksfy` — Shorten with *lksfy* \\+ Cloudflare protection\n"
+            "  🛡️ `/direct` — *Cloudflare protection only* \\(no shortener\\)\n\n"
+            "📦 *Bulk mode supported\\!* — Paste multiple URLs \\(one per line\\)\n\n"
+            "*🔗 Mode 1 — lksfy \\+ Protect* `/lksfy`\n"
+            "Links are first shortened via *lksfy*, then wrapped with Cloudflare protection\\.\n"
+            "You receive: `Original` \\+ `lksfy link` \\+ `protected link`\n\n"
+            "*🛡️ Mode 2 — Direct Protect* `/direct`\n"
+            "Links are protected directly via Cloudflare — *no shortener*\\.\n"
+            "You receive: `Original` \\+ `protected link`\n\n"
+            "*📦 Bulk Mode*\n"
+            "Paste multiple URLs \\(one per line\\) — all will be processed at once\\.\n\n"
+            "*📌 How to use:*\n"
+            "1\\. Choose mode with `/lksfy` or `/direct`\n"
+            "2\\. Paste your URL\\(s\\)\n"
+            "3\\. Get your protected links instantly ⚡\n"
+        )
+        await query.answer()
+        await query.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN_V2)
+        return
+
+    # ── Mode buttons from start message ──
+    if query.data.startswith("set_mode:"):
+        if not is_approved(user.id):
+            await query.answer("⏳ Your account is not approved yet.", show_alert=True)
+            return
+        mode = query.data.split(":")[1]
+        context.user_data["mode"] = mode
+        label = "🔗 lksfy \\+ Protect" if mode == "lksfy" else "🛡️ Direct Protect"
+        await query.answer(f"{'lksfy' if mode == 'lksfy' else 'Direct'} mode set!")
+        await query.message.reply_text(
+            f"{label} *mode activated\\!*\n\nNow paste your URLs below 👇",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
     # ── Approve / Deny buttons (admin only) ──
     if not is_admin(user.id):
         await query.answer("🚫 Not authorized.", show_alert=True)
@@ -560,7 +614,7 @@ def main():
     # Inline buttons
     app.add_handler(CallbackQueryHandler(
         handle_callback,
-        pattern=r"^(approve|deny):\d+$|^check_sub$",
+        pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^set_mode:(lksfy|direct)$",
     ))
 
     # Messages
