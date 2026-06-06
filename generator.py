@@ -49,7 +49,7 @@ async def _shorten_lksfy(url: str) -> str:
 
     async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
         async with session.get(
-            "https://lksfy.com/api",
+            "https://linkshortify.com/api?api=${os.environ.LKSFY_API_KEY}&url=${encodeURIComponent(url.trim())}",
             params={"api": LKSFY_API_KEY, "url": url, "format": "json"},
         ) as resp:
             data = await resp.json(content_type=None)
