@@ -536,8 +536,57 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "2\\. Paste your URL\\(s\\)\n"
             "3\\. Get your protected links instantly ⚡\n"
         )
-        await query.answer()
-        await query.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN_V2)
+        home_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Home", callback_data="go_home")],
+        ])
+        await query.edit_message_text(
+            help_text,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=home_keyboard,
+        )
+        return
+
+    # ── Home button — go back to start message ──
+    if query.data == "go_home":
+        first_name = escape(user.first_name or "there")
+        welcome = (
+            f"👋 *Hey {first_name}\\! Welcome to VMMrx Protection Bot* 🛡️\n\n"
+            "I protect your links with *Cloudflare* security —\n"
+            "no one can bypass them\\! ⚡\n\n"
+            "🔗 *lksfy mode* — shorten \\+ protect\n"
+            "🛡️ *Direct mode* — protect only, no shortener\n"
+            "📦 *Bulk support* — multiple links at once\n\n"
+        )
+        if is_admin(user.id):
+            welcome += (
+                "👑 *Admin Commands:*\n"
+                "  `/pending` — View pending users\n"
+                "  `/approve <user\\_id>` — Approve a user\n"
+                "  `/revoke <user\\_id>` — Revoke access\n"
+                "  `/users` — List approved users\n\n"
+            )
+        if is_approved(user.id):
+            welcome += "✅ *Your account is approved\\. Start generating links\\!*"
+            home_keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
+                    InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
+                ],
+                [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+            ])
+        else:
+            welcome += (
+                "⏳ *Your account is pending admin approval\\.*\n"
+                "You'll be notified once approved\\."
+            )
+            home_keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+            ])
+        await query.edit_message_text(
+            welcome,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=home_keyboard,
+        )
         return
 
     # ── Mode buttons from start message ──
@@ -549,9 +598,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = mode
         label = "🔗 lksfy \\+ Protect" if mode == "lksfy" else "🛡️ Direct Protect"
         await query.answer(f"{'lksfy' if mode == 'lksfy' else 'Direct'} mode set!")
-        await query.message.reply_text(
-            f"{label} *mode activated\\!*\n\nNow paste your URLs below 👇",
+        mode_text = (
+            f"{label} *mode activated\\!*\n\n"
+            "Now paste your URLs below 👇"
+        )
+        mode_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Home", callback_data="go_home")],
+        ])
+        await query.edit_message_text(
+            mode_text,
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=mode_keyboard,
         )
         return
 
@@ -614,7 +671,7 @@ def main():
     # Inline buttons
     app.add_handler(CallbackQueryHandler(
         handle_callback,
-        pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^set_mode:(lksfy|direct)$",
+        pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^set_mode:(lksfy|direct)$|^go_home$",
     ))
 
     # Messages
