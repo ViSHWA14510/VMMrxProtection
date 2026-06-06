@@ -48,12 +48,11 @@ async def _shorten_lksfy(url: str) -> str:
         raise ValueError("LKSFY_API_KEY is not set. Add it to your .env to use /lksfy mode.")
 
     async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-        async with session.post(
+        async with session.get(
             "https://lksfy.com/api",
-            json={"url": url, "api": LKSFY_API_KEY},
-            headers={"Content-Type": "application/json"},
+            params={"api": LKSFY_API_KEY, "url": url, "format": "json"},
         ) as resp:
-            data = await resp.json()
+            data = await resp.json(content_type=None)
             if not resp.ok or data.get("status") != "success":
                 raise ValueError(data.get("message", f"lksfy API error {resp.status}"))
             return data["shortenedUrl"]
