@@ -184,12 +184,24 @@ async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ You're not approved yet.")
         return
     current = context.user_data.get("mode", None)
+    backend = context.user_data.get("backend", "worker")
+    b_label = "⚡ Cloudflare Worker" if backend == "worker" else "🌐 Vercel"
+
     if current == "lksfy":
-        await update.message.reply_text("🔗 Current mode: *lksfy \\+ Protect*\nSend URLs to generate links\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            f"🔗 *Mode:* lksfy \\+ Protect\n{b_label} *backend active*\nSend URLs to generate links\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
     elif current == "direct":
-        await update.message.reply_text("🛡️ Current mode: *Direct Protect*\nSend URLs to generate links\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            f"🛡️ *Mode:* Direct Protect\n{b_label} *backend active*\nSend URLs to generate links\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
     else:
-        await update.message.reply_text("⚠️ No mode selected\\. Use `/lksfy` or `/direct` first\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            f"⚠️ No mode selected\\.\n{b_label} *backend active*\nUse `/lksfy` or `/direct` to choose a mode\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
 
 # ── /lksfy ────────────────────────────────────────────────────────────────────
 
@@ -227,6 +239,44 @@ async def cmd_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Now send me one or more URLs \\(one per line\\) to generate:\n"
         "• Original link\n"
         "• Cloudflare\\-protected link",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+# ── /worker ───────────────────────────────────────────────────────────────────
+
+async def cmd_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
+    if not is_approved(user.id):
+        await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
+        return
+    context.user_data["backend"] = "worker"
+    await update.message.reply_text(
+        "⚡ *Cloudflare Worker backend selected\\!*\n\n"
+        "Now choose a mode:\n"
+        "• `/lksfy` — shorten \\+ protect\n"
+        "• `/direct` — protect only",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+# ── /vercel ───────────────────────────────────────────────────────────────────
+
+async def cmd_vercel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
+    if not is_approved(user.id):
+        await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
+        return
+    context.user_data["backend"] = "vercel"
+    await update.message.reply_text(
+        "🌐 *Vercel backend selected\\!*\n\n"
+        "Now choose a mode:\n"
+        "• `/lksfy` — shorten \\+ protect\n"
+        "• `/direct` — protect only",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -280,13 +330,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url_map: dict[str, dict] = {}   # original_url -> full API response data
     errors = []
 
+    backend = context.user_data.get("backend", "worker")
+
     for i, url in enumerate(urls, 1):
         try:
             if mode == "lksfy":
-                data = await generate_lksfy_link(url)
+                data = await generate_lksfy_link(url, backend=backend)
                 url_map[url] = data   # has: short_url, protected_url
             else:
-                data = await generate_direct_link(url)
+                data = await generate_direct_link(url, backend=backend)
                 url_map[url] = data   # has: protected_url, original_url
         except Exception as e:
             log.warning(f"Error processing {url}: {e}")
@@ -663,6 +715,8 @@ def main():
     app.add_handler(CommandHandler("mode", cmd_mode))
     app.add_handler(CommandHandler("lksfy", cmd_lksfy))
     app.add_handler(CommandHandler("direct", cmd_direct))
+    app.add_handler(CommandHandler("worker", cmd_worker))
+    app.add_handler(CommandHandler("vercel", cmd_vercel))
     app.add_handler(CommandHandler("pending", cmd_pending))
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("revoke", cmd_revoke))
