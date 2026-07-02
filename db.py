@@ -30,9 +30,18 @@ def init_db():
                 full_name TEXT    DEFAULT '',
                 approved  INTEGER DEFAULT 0,
                 pending   INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
+                created_at TEXT DEFAULT (datetime('now')),
+                shortener_url TEXT DEFAULT '',
+                shortener_api TEXT DEFAULT ''
             )
         """)
+        con.commit()
+        # Backfill columns for DBs created before shortener support existed.
+        existing_cols = {row["name"] for row in con.execute("PRAGMA table_info(users)").fetchall()}
+        if "shortener_url" not in existing_cols:
+            con.execute("ALTER TABLE users ADD COLUMN shortener_url TEXT DEFAULT ''")
+        if "shortener_api" not in existing_cols:
+            con.execute("ALTER TABLE users ADD COLUMN shortener_api TEXT DEFAULT ''")
         con.commit()
 
 @contextmanager
@@ -131,3 +140,43 @@ def get_user_info(user_id: int) -> dict | None:
             (user_id,)
         ).fetchone()
         return dict(row) if row else None
+
+# ── Manual shortener (per-user) ─────────────────────────────────────────────
+
+def set_shortener_url(user_id: int, url: str):
+    """Save the user's own shortener site URL (e.g. https://gplinks.in)."""
+    with _conn() as con:
+        con.execute("""
+            INSERT INTO users (user_id, shortener_url)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET shortener_url = excluded.shortener_url
+        """, (user_id, url.strip()))
+        con.commit()
+
+def set_shortener_api(user_id: int, api_key: str):
+    """Save the user's own shortener API key."""
+    with _conn() as con:
+        con.execute("""
+            INSERT INTO users (user_id, shortener_api)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET shortener_api = excluded.shortener_api
+        """, (user_id, api_key.strip()))
+        con.commit()
+
+def get_shortener(user_id: int) -> dict:
+    """Returns {'url': ..., 'api': ...} for the user's configured shortener (empty strings if unset)."""
+    with _conn() as con:
+        row = con.execute(
+            "SELECT shortener_url, shortener_api FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if not row:
+            return {"url": "", "api": ""}
+        return {"url": row["shortener_url"] or "", "api": row["shortener_api"] or ""}
+
+def clear_shortener(user_id: int):
+    with _conn() as con:
+        con.execute(
+            "UPDATE users SET shortener_url = '', shortener_api = '' WHERE user_id = ?",
+            (user_id,)
+        )
+        con.commit()
