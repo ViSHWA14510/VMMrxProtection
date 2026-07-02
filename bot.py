@@ -27,6 +27,10 @@ from db import (
     get_all_users,
     get_user_info,
     save_user,
+    set_shortener_url,
+    set_shortener_api,
+    get_shortener,
+    clear_shortener,
 )
 from generator import generate_lksfy_link, generate_direct_link
 
@@ -121,6 +125,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
                 InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
             ],
+            [InlineKeyboardButton("⚙️ Setup Shortener", callback_data="shortner_open")],
             [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
         ])
     else:
@@ -169,7 +174,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*📌 How to use:*\n"
         "1\\. Send `/lksfy` or `/direct` to choose mode\n"
         "2\\. Paste one or more URLs\n"
-        "3\\. Receive your protected links instantly\n"
+        "3\\. Receive your protected links instantly\n\n"
+        "*⚙️ Custom Shortener*\n"
+        "Send `/shortner` to connect your own shortener account "
+        "\\(instead of the bot's default\\) for `/lksfy` mode\\."
     )
     await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN_V2)
 
@@ -280,6 +288,50 @@ async def cmd_vercel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
+# ── /shortner ─────────────────────────────────────────────────────────────────
+
+async def cmd_shortner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not await is_subscribed(context.bot, user.id):
+        await send_force_sub_message(update)
+        return
+    if not is_approved(user.id):
+        await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
+        return
+    text, parse_mode, keyboard = shortner_intro_payload(user.id)
+    await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=keyboard)
+
+def shortner_intro_payload(user_id: int):
+    """Returns (text, parse_mode, reply_markup) for the /shortner intro screen."""
+    cfg = get_shortener(user_id)
+    url_status = escape(cfg["url"]) if cfg["url"] else "❌ Not set"
+    api_status = "✅ Set" if cfg["api"] else "❌ Not set"
+
+    text = (
+        "🔗 *Manual Shortener Setup*\n\n"
+        "Connect your *own* link shortener \\(GPLinks, ShrinkMe, lksfy, etc\\.\\) "
+        "so your links are shortened using *your* account instead of the bot's default\\.\n\n"
+        "*📌 How it works:*\n"
+        "1️⃣ Sign up on any shortener site that supports the standard API "
+        "\\(`/api?api=KEY&url=URL&format=json`\\)\n"
+        "2️⃣ Copy your *site domain* \\(e\\.g\\. `https://gplinks.in`\\) from your dashboard\n"
+        "3️⃣ Copy your *API key* from the shortener dashboard \\(usually under *Tools → API*\\)\n"
+        "4️⃣ Tap *🌐 Shortener URL* below and send your domain\n"
+        "5️⃣ Tap *🔑 Shortener API* below and send your API key\n\n"
+        "Once both are set, `/lksfy` mode will automatically use *your* shortener\\.\n\n"
+        "*Current settings:*\n"
+        f"🌐 URL: {url_status}\n"
+        f"🔑 API Key: {api_status}"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🌐 Shortener URL", callback_data="shortner_set:url"),
+            InlineKeyboardButton("🔑 Shortener API", callback_data="shortner_set:api"),
+        ],
+        [InlineKeyboardButton("🗑️ Clear Settings", callback_data="shortner_clear")],
+    ])
+    return (text, ParseMode.MARKDOWN_V2, keyboard)
+
 # ── Message handler (URL processing) ─────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -298,6 +350,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         add_pending_user(user.id, user.username or "", user.full_name or "")
         await notify_admins_new_user(context, user)
+        return
+
+    # ── Waiting for a /shortner value (URL or API key)? Handle that first. ──
+    awaiting = context.user_data.get("awaiting_shortner")
+    if awaiting:
+        value = (update.message.text or "").strip()
+        context.user_data.pop("awaiting_shortner", None)
+
+        if awaiting == "url":
+            if not (value.startswith("http://") or value.startswith("https://")):
+                await update.message.reply_text(
+                    "❌ That doesn't look like a valid URL. It should start with `http://` or `https://`.\n"
+                    "Send /shortner to try again.",
+                    parse_mode=None,
+                )
+                return
+            set_shortener_url(user.id, value.rstrip("/"))
+            await update.message.reply_text("✅ Shortener URL saved!")
+        elif awaiting == "api":
+            set_shortener_api(user.id, value)
+            await update.message.reply_text("✅ Shortener API key saved!")
+
+        text, parse_mode, keyboard = shortner_intro_payload(user.id)
+        await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=keyboard)
         return
 
     mode = context.user_data.get("mode")
@@ -331,11 +407,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     errors = []
 
     backend = context.user_data.get("backend", "worker")
+    shortener_cfg = get_shortener(user.id) if mode == "lksfy" else {"url": "", "api": ""}
 
     for i, url in enumerate(urls, 1):
         try:
             if mode == "lksfy":
-                data = await generate_lksfy_link(url, backend=backend)
+                data = await generate_lksfy_link(
+                    url, backend=backend,
+                    shortener_url=shortener_cfg["url"],
+                    shortener_api=shortener_cfg["api"],
+                )
                 url_map[url] = data   # has: short_url, protected_url
             else:
                 data = await generate_direct_link(url, backend=backend)
@@ -624,6 +705,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
                     InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
                 ],
+                [InlineKeyboardButton("⚙️ Setup Shortener", callback_data="shortner_open")],
                 [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
             ])
         else:
@@ -639,6 +721,41 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=home_keyboard,
         )
+        return
+
+    # ── Open shortener setup from /start ──
+    if query.data == "shortner_open":
+        if not is_approved(user.id):
+            await query.answer("⏳ Your account is not approved yet.", show_alert=True)
+            return
+        text, parse_mode, keyboard = shortner_intro_payload(user.id)
+        await query.edit_message_text(text, parse_mode=parse_mode, reply_markup=keyboard)
+        return
+
+    # ── Shortener setup buttons ──
+    if query.data in ("shortner_set:url", "shortner_set:api"):
+        if not is_approved(user.id):
+            await query.answer("⏳ Your account is not approved yet.", show_alert=True)
+            return
+        field = query.data.split(":")[1]
+        context.user_data["awaiting_shortner"] = field
+        prompt = (
+            "🌐 Send me your *shortener site URL* now\\.\n"
+            "Example: `https://gplinks.in`"
+            if field == "url" else
+            "🔑 Send me your *shortener API key* now\\.\n"
+            "You'll find this in your shortener dashboard \\(usually under *Tools → API*\\)\\."
+        )
+        await query.edit_message_text(prompt, parse_mode=ParseMode.MARKDOWN_V2)
+        return
+
+    if query.data == "shortner_clear":
+        if not is_approved(user.id):
+            await query.answer("⏳ Your account is not approved yet.", show_alert=True)
+            return
+        clear_shortener(user.id)
+        text, parse_mode, keyboard = shortner_intro_payload(user.id)
+        await query.edit_message_text(text, parse_mode=parse_mode, reply_markup=keyboard)
         return
 
     # ── Mode buttons from start message ──
@@ -721,11 +838,13 @@ def main():
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("revoke", cmd_revoke))
     app.add_handler(CommandHandler("users", cmd_users))
+    app.add_handler(CommandHandler("shortner", cmd_shortner))
 
     # Inline buttons
     app.add_handler(CallbackQueryHandler(
         handle_callback,
-        pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^set_mode:(lksfy|direct)$|^go_home$",
+        pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^set_mode:(lksfy|direct)$|^go_home$"
+                r"|^shortner_set:(url|api)$|^shortner_clear$|^shortner_open$",
     ))
 
     # Messages
