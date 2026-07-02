@@ -61,6 +61,100 @@ def escape(text: str) -> str:
         text = text.replace(ch, f"\\{ch}")
     return text
 
+# ── UI constants ──────────────────────────────────────────────────────────────
+DIVIDER = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+
+def status_badge(ok: bool) -> str:
+    return "✅ Active" if ok else "⚪ Inactive"
+
+# ── Shared screen builders (keep /start, /help, and their button versions
+#    perfectly in sync so the UI never drifts between screens) ────────────────
+
+def build_welcome_text(user, context: ContextTypes.DEFAULT_TYPE) -> str:
+    first_name = escape(user.first_name or "there")
+    mode = context.user_data.get("mode")
+    backend = context.user_data.get("backend", "worker")
+    mode_label = {"lksfy": "🔗 lksfy \\+ Protect", "direct": "🛡️ Direct Protect"}.get(mode, "⚪ Not selected")
+    backend_label = "⚡ Cloudflare Worker" if backend == "worker" else "🌐 Vercel"
+
+    lines = [
+        f"👋 *Welcome back, {first_name}*",
+        "🛡️ *VMMrx Protection Bot*",
+        DIVIDER,
+        "Generate Cloudflare\\-protected, unbypassable links in seconds\\.",
+        "",
+        "*✨ What I can do:*",
+        "  🔗  Shorten \\+ protect \\(lksfy mode\\)",
+        "  🛡️  Protect only \\(direct mode\\)",
+        "  📦  Bulk\\-process multiple links at once",
+        "  ⚙️  Use *your own* shortener account",
+        "",
+        "*📊 Your Status:*",
+        f"  Mode        →  {mode_label}",
+        f"  Backend  →  {backend_label}",
+    ]
+
+    if is_admin(user.id):
+        lines += [
+            "",
+            "*👑 Admin Panel:*",
+            "  `/pending`        View users awaiting approval",
+            "  `/approve id`  Approve a user",
+            "  `/revoke id`    Revoke a user's access",
+            "  `/users`          List all approved users",
+        ]
+
+    lines.append(DIVIDER)
+    if is_approved(user.id):
+        lines.append("✅ *Account approved — you're all set\\!*")
+    else:
+        lines.append("⏳ *Awaiting admin approval\\.* You'll be notified the moment you're approved\\.")
+
+    return "\n".join(lines)
+
+def build_home_keyboard(user) -> InlineKeyboardMarkup:
+    if is_approved(user.id):
+        return InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
+                InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
+            ],
+            [InlineKeyboardButton("⚙️ Setup Shortener", callback_data="shortner_open")],
+            [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+        ])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
+    ])
+
+def build_help_text() -> str:
+    return "\n".join([
+        "📖 *Help & Guide*",
+        DIVIDER,
+        "*🔐 Modes*",
+        "  🔗 `/lksfy`   Shorten \\+ Cloudflare\\-protect",
+        "  🛡️ `/direct`  Cloudflare protection only",
+        "",
+        "*🔗 lksfy \\+ Protect*",
+        "Your link is shortened first, then wrapped in Cloudflare protection\\.",
+        "You get: `Original` → `Short link` → `Protected link`",
+        "",
+        "*🛡️ Direct Protect*",
+        "Skips the shortener — protects the original link directly\\.",
+        "You get: `Original` → `Protected link`",
+        "",
+        "*📦 Bulk Mode*",
+        "Paste multiple URLs \\(one per line\\) after choosing a mode — all are processed together\\.",
+        "",
+        "*⚙️ Custom Shortener*",
+        "Run `/shortner` to connect your *own* shortener account for `/lksfy` mode instead of the bot's default\\.",
+        "",
+        DIVIDER,
+        "*📌 Quick Start*",
+        "1️⃣ Choose a mode — `/lksfy` or `/direct`",
+        "2️⃣ Paste one or more links",
+        "3️⃣ Get your protected link\\(s\\) instantly ⚡",
+    ])
+
 # ── Force Subscribe ───────────────────────────────────────────────────────────
 
 async def is_subscribed(bot, user_id: int) -> bool:
@@ -78,12 +172,18 @@ async def send_force_sub_message(update: Update):
     channel = FORCE_SUB_CHANNEL
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{channel.lstrip('@')}")],
-        [InlineKeyboardButton("✅ I Joined", callback_data="check_sub")],
+        [InlineKeyboardButton("✅ I've Joined", callback_data="check_sub")],
+    ])
+    text = "\n".join([
+        "🔒 *One Quick Step*",
+        DIVIDER,
+        "Join our channel to unlock the bot\\.",
+        f"👉 {escape(channel)}",
+        "",
+        "Tap *✅ I've Joined* once you're in\\.",
     ])
     await update.effective_message.reply_text(
-        "⚠️ *You must join our channel to use this bot\\!*\n\n"
-        f"👉 Join: {escape(channel)}\n\n"
-        "After joining tap *✅ I Joined* below\\.",
+        text,
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=keyboard,
     )
@@ -98,51 +198,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_force_sub_message(update)
         return
 
-    first_name = escape(user.first_name or "there")
-
-    welcome = (
-        f"👋 *Hey {first_name}\\! Welcome to VMMrx Protection Bot* 🛡️\n\n"
-        "I protect your links with *Cloudflare* security —\n"
-        "no one can bypass them\\! ⚡\n\n"
-        "🔗 *lksfy mode* — shorten \\+ protect\n"
-        "🛡️ *Direct mode* — protect only, no shortener\n"
-        "📦 *Bulk support* — multiple links at once\n\n"
-    )
-
-    if is_admin(user.id):
-        welcome += (
-            "👑 *Admin Commands:*\n"
-            "  `/pending` — View pending users\n"
-            "  `/approve <user\\_id>` — Approve a user\n"
-            "  `/revoke <user\\_id>` — Revoke access\n"
-            "  `/users` — List approved users\n\n"
-        )
-
-    if is_approved(user.id):
-        welcome += "✅ *Your account is approved\\. Start generating links\\!*"
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
-                InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
-            ],
-            [InlineKeyboardButton("⚙️ Setup Shortener", callback_data="shortner_open")],
-            [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
-        ])
-    else:
-        welcome += (
-            "⏳ *Your account is pending admin approval\\.*\n"
-            "You'll be notified once approved\\."
-        )
-        await notify_admins_new_user(context, user)
+    if not is_approved(user.id):
         add_pending_user(user.id, user.username or "", user.full_name or "")
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
-        ])
+        await notify_admins_new_user(context, user)
 
     await update.message.reply_text(
-        welcome,
+        build_welcome_text(user, context),
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=keyboard,
+        reply_markup=build_home_keyboard(user),
     )
 
 # ── /help ─────────────────────────────────────────────────────────────────────
@@ -156,30 +219,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
         return
 
-    text = (
-        "📖 *VMMrx Bot — Help Guide*\n\n"
-        "🔐 *Two powerful modes:*\n"
-        "  🔗 `/lksfy` — Shorten with *lksfy* \\+ Cloudflare protection\n"
-        "  🛡️ `/direct` — *Cloudflare protection only* \\(no shortener\\)\n\n"
-        "📦 *Bulk mode supported\\!* — Paste multiple URLs \\(one per line\\)\n\n"
-        "*🔗 Mode 1 — lksfy \\+ Protect* `/lksfy`\n"
-        "Links are first shortened via *lksfy* then wrapped with Cloudflare protection\\.\n"
-        "You receive: `Original link` \\+ `lksfy link` \\+ `protected link`\n\n"
-        "*🛡️ Mode 2 — Direct Protect* `/direct`\n"
-        "Links are protected directly via Cloudflare — *no shortener*\\.\n"
-        "You receive: `Original link` \\+ `protected link`\n\n"
-        "*📦 Bulk Mode*\n"
-        "Simply paste multiple URLs \\(one per line\\) after choosing a mode\\.\n"
-        "All links will be processed at once\\.\n\n"
-        "*📌 How to use:*\n"
-        "1\\. Send `/lksfy` or `/direct` to choose mode\n"
-        "2\\. Paste one or more URLs\n"
-        "3\\. Receive your protected links instantly\n\n"
-        "*⚙️ Custom Shortener*\n"
-        "Send `/shortner` to connect your own shortener account "
-        "\\(instead of the bot's default\\) for `/lksfy` mode\\."
-    )
-    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(build_help_text(), parse_mode=ParseMode.MARKDOWN_V2)
 
 # ── /mode ─────────────────────────────────────────────────────────────────────
 
@@ -194,22 +234,19 @@ async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current = context.user_data.get("mode", None)
     backend = context.user_data.get("backend", "worker")
     b_label = "⚡ Cloudflare Worker" if backend == "worker" else "🌐 Vercel"
+    mode_label = {"lksfy": "🔗 lksfy \\+ Protect", "direct": "🛡️ Direct Protect"}.get(current, "⚪ Not selected")
 
-    if current == "lksfy":
-        await update.message.reply_text(
-            f"🔗 *Mode:* lksfy \\+ Protect\n{b_label} *backend active*\nSend URLs to generate links\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
-    elif current == "direct":
-        await update.message.reply_text(
-            f"🛡️ *Mode:* Direct Protect\n{b_label} *backend active*\nSend URLs to generate links\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+    lines = [
+        "📊 *Current Session*",
+        DIVIDER,
+        f"Mode       →  {mode_label}",
+        f"Backend →  {b_label}",
+    ]
+    if not current:
+        lines += ["", "Use `/lksfy` or `/direct` to choose a mode\\."]
     else:
-        await update.message.reply_text(
-            f"⚠️ No mode selected\\.\n{b_label} *backend active*\nUse `/lksfy` or `/direct` to choose a mode\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        lines += ["", "Send URLs to generate links\\."]
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
 
 # ── /lksfy ────────────────────────────────────────────────────────────────────
 
@@ -223,11 +260,14 @@ async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data["mode"] = "lksfy"
     await update.message.reply_text(
-        "🔗 *lksfy \\+ Protect mode activated\\!*\n\n"
-        "Now send me one or more URLs \\(one per line\\) to generate:\n"
-        "• Original link\n"
-        "• lksfy shortened link\n"
-        "• Cloudflare\\-protected link",
+        "\n".join([
+            "🔗 *lksfy \\+ Protect — Activated*",
+            DIVIDER,
+            "Send one or more URLs \\(one per line\\)\\. For each, you'll get:",
+            "  •  Original link",
+            "  •  lksfy shortened link",
+            "  •  Cloudflare\\-protected link",
+        ]),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -243,10 +283,13 @@ async def cmd_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data["mode"] = "direct"
     await update.message.reply_text(
-        "🛡️ *Direct Protect mode activated\\!*\n\n"
-        "Now send me one or more URLs \\(one per line\\) to generate:\n"
-        "• Original link\n"
-        "• Cloudflare\\-protected link",
+        "\n".join([
+            "🛡️ *Direct Protect — Activated*",
+            DIVIDER,
+            "Send one or more URLs \\(one per line\\)\\. For each, you'll get:",
+            "  •  Original link",
+            "  •  Cloudflare\\-protected link",
+        ]),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -262,10 +305,13 @@ async def cmd_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data["backend"] = "worker"
     await update.message.reply_text(
-        "⚡ *Cloudflare Worker backend selected\\!*\n\n"
-        "Now choose a mode:\n"
-        "• `/lksfy` — shorten \\+ protect\n"
-        "• `/direct` — protect only",
+        "\n".join([
+            "⚡ *Cloudflare Worker Backend — Selected*",
+            DIVIDER,
+            "Now choose a mode:",
+            "  •  `/lksfy`   shorten \\+ protect",
+            "  •  `/direct`  protect only",
+        ]),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -281,10 +327,13 @@ async def cmd_vercel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data["backend"] = "vercel"
     await update.message.reply_text(
-        "🌐 *Vercel backend selected\\!*\n\n"
-        "Now choose a mode:\n"
-        "• `/lksfy` — shorten \\+ protect\n"
-        "• `/direct` — protect only",
+        "\n".join([
+            "🌐 *Vercel Backend — Selected*",
+            DIVIDER,
+            "Now choose a mode:",
+            "  •  `/lksfy`   shorten \\+ protect",
+            "  •  `/direct`  protect only",
+        ]),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -304,31 +353,36 @@ async def cmd_shortner(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def shortner_intro_payload(user_id: int):
     """Returns (text, parse_mode, reply_markup) for the /shortner intro screen."""
     cfg = get_shortener(user_id)
-    url_status = escape(cfg["url"]) if cfg["url"] else "❌ Not set"
-    api_status = "✅ Set" if cfg["api"] else "❌ Not set"
+    url_display = escape(cfg["url"]) if cfg["url"] else "Not set"
+    url_status = f"✅ `{url_display}`" if cfg["url"] else "⚪ Not set"
+    api_status = "✅ Set" if cfg["api"] else "⚪ Not set"
 
-    text = (
-        "🔗 *Manual Shortener Setup*\n\n"
-        "Connect your *own* link shortener \\(GPLinks, ShrinkMe, lksfy, etc\\.\\) "
-        "so your links are shortened using *your* account instead of the bot's default\\.\n\n"
-        "*📌 How it works:*\n"
-        "1️⃣ Sign up on any shortener site that supports the standard API "
-        "\\(`/api?api=KEY&url=URL&format=json`\\)\n"
-        "2️⃣ Copy your *site domain* \\(e\\.g\\. `https://gplinks.in`\\) from your dashboard\n"
-        "3️⃣ Copy your *API key* from the shortener dashboard \\(usually under *Tools → API*\\)\n"
-        "4️⃣ Tap *🌐 Shortener URL* below and send your domain\n"
-        "5️⃣ Tap *🔑 Shortener API* below and send your API key\n\n"
-        "Once both are set, `/lksfy` mode will automatically use *your* shortener\\.\n\n"
-        "*Current settings:*\n"
-        f"🌐 URL: {url_status}\n"
-        f"🔑 API Key: {api_status}"
-    )
+    text = "\n".join([
+        "⚙️ *Manual Shortener Setup*",
+        DIVIDER,
+        "Connect your *own* shortener \\(GPLinks, ShrinkMe, lksfy, etc\\.\\) "
+        "so `/lksfy` mode uses *your* account instead of the bot's default\\.",
+        "",
+        "*📌 Setup Steps*",
+        "1️⃣  Sign up on a shortener with a standard API",
+        "     \\(`/api?api=KEY&url=URL&format=json`\\)",
+        "2️⃣  Copy your *site domain*, e\\.g\\. `https://gplinks.in`",
+        "3️⃣  Copy your *API key* — usually under *Tools → API*",
+        "4️⃣  Tap 🌐 *Shortener URL* and send your domain",
+        "5️⃣  Tap 🔑 *Shortener API* and send your key",
+        "",
+        DIVIDER,
+        "*📊 Current Settings*",
+        f"🌐 URL       →  {url_status}",
+        f"🔑 API Key →  {api_status}",
+    ])
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🌐 Shortener URL", callback_data="shortner_set:url"),
             InlineKeyboardButton("🔑 Shortener API", callback_data="shortner_set:api"),
         ],
         [InlineKeyboardButton("🗑️ Clear Settings", callback_data="shortner_clear")],
+        [InlineKeyboardButton("🏠 Home", callback_data="go_home")],
     ])
     return (text, ParseMode.MARKDOWN_V2, keyboard)
 
@@ -344,8 +398,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_approved(user.id):
         await update.message.reply_text(
-            "⏳ Your account is *pending admin approval*\\.\n"
-            "You'll receive a notification once approved\\.",
+            "\n".join([
+                "⏳ *Pending Approval*",
+                DIVIDER,
+                "Your account is awaiting admin approval\\.",
+                "You'll be notified the moment you're approved\\.",
+            ]),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         add_pending_user(user.id, user.username or "", user.full_name or "")
@@ -361,16 +419,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if awaiting == "url":
             if not (value.startswith("http://") or value.startswith("https://")):
                 await update.message.reply_text(
-                    "❌ That doesn't look like a valid URL. It should start with `http://` or `https://`.\n"
-                    "Send /shortner to try again.",
-                    parse_mode=None,
+                    "\n".join([
+                        "❌ *Invalid URL*",
+                        DIVIDER,
+                        "It must start with `http://` or `https://`\\.",
+                        "Send /shortner to try again\\.",
+                    ]),
+                    parse_mode=ParseMode.MARKDOWN_V2,
                 )
                 return
             set_shortener_url(user.id, value.rstrip("/"))
-            await update.message.reply_text("✅ Shortener URL saved!")
+            await update.message.reply_text("✅ *Shortener URL saved\\!*", parse_mode=ParseMode.MARKDOWN_V2)
         elif awaiting == "api":
             set_shortener_api(user.id, value)
-            await update.message.reply_text("✅ Shortener API key saved!")
+            await update.message.reply_text("✅ *Shortener API key saved\\!*", parse_mode=ParseMode.MARKDOWN_V2)
 
         text, parse_mode, keyboard = shortner_intro_payload(user.id)
         await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=keyboard)
@@ -379,9 +441,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = context.user_data.get("mode")
     if not mode:
         await update.message.reply_text(
-            "⚠️ Please choose a mode first\\!\n\n"
-            "• `/lksfy` — lksfy \\+ Cloudflare protect\n"
-            "• `/direct` — Cloudflare protect only",
+            "\n".join([
+                "⚠️ *No Mode Selected*",
+                DIVIDER,
+                "  •  `/lksfy`   lksfy \\+ Cloudflare protect",
+                "  •  `/direct`  Cloudflare protect only",
+            ]),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
@@ -391,13 +456,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not urls:
         await update.message.reply_text(
-            "❌ No valid URLs found\\. Please send URLs starting with `http://` or `https://`\\.",
+            "❌ *No valid URLs found\\.* Please send links starting with `http://` or `https://`\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
 
     processing_msg = await update.message.reply_text(
-        f"⚙️ Processing *{len(urls)} link{'s' if len(urls) > 1 else ''}*\\.\\.\\.",
+        f"⚙️ Processing *{len(urls)}* link{'s' if len(urls) > 1 else ''}\\.\\.\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -484,15 +549,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         )
 
-    await update.message.reply_text(
-        converted_text,
-        entities=adjusted_entities if adjusted_entities else None,
-    )
+    if url_map:
+        await update.message.reply_text(
+            f"✅ *{len(url_map)} link{'s' if len(url_map) != 1 else ''} protected\\!*",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        await update.message.reply_text(
+            converted_text,
+            entities=adjusted_entities if adjusted_entities else None,
+        )
 
     # Report any errors separately
     for e in errors:
         await update.message.reply_text(
-            f"❌ *Failed:* `{escape(e['url'])}`\n⚠️ {escape(e['error'])}",
+            "\n".join([
+                f"❌ *Failed:* `{escape(e['url'])}`",
+                f"⚠️ {escape(e['error'])}",
+            ]),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
     return
@@ -504,13 +577,15 @@ async def notify_admins_new_user(context: ContextTypes.DEFAULT_TYPE, user):
     from db import get_admin_ids
     admin_ids = get_admin_ids()
     username = f"@{user.username}" if user.username else "No username"
-    text = (
-        f"🔔 *New User Requesting Access*\n\n"
-        f"👤 Name: {escape(user.full_name or 'Unknown')}\n"
-        f"🔖 Username: {escape(username)}\n"
-        f"🆔 User ID: `{user.id}`\n\n"
-        f"Use `/approve {user.id}` to grant access\\."
-    )
+    text = "\n".join([
+        "🔔 *New Access Request*",
+        DIVIDER,
+        f"👤 Name       →  {escape(user.full_name or 'Unknown')}",
+        f"🔖 Username →  {escape(username)}",
+        f"🆔 User ID   →  `{user.id}`",
+        "",
+        f"Use `/approve {user.id}` to grant access\\.",
+    ])
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Approve", callback_data=f"approve:{user.id}"),
@@ -650,30 +725,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Help button ──
     if query.data == "show_help":
-        help_text = (
-            "📖 *VMMrx Bot — Help Guide*\n\n"
-            "🔐 *Two powerful modes:*\n"
-            "  🔗 `/lksfy` — Shorten with *lksfy* \\+ Cloudflare protection\n"
-            "  🛡️ `/direct` — *Cloudflare protection only* \\(no shortener\\)\n\n"
-            "📦 *Bulk mode supported\\!* — Paste multiple URLs \\(one per line\\)\n\n"
-            "*🔗 Mode 1 — lksfy \\+ Protect* `/lksfy`\n"
-            "Links are first shortened via *lksfy*, then wrapped with Cloudflare protection\\.\n"
-            "You receive: `Original` \\+ `lksfy link` \\+ `protected link`\n\n"
-            "*🛡️ Mode 2 — Direct Protect* `/direct`\n"
-            "Links are protected directly via Cloudflare — *no shortener*\\.\n"
-            "You receive: `Original` \\+ `protected link`\n\n"
-            "*📦 Bulk Mode*\n"
-            "Paste multiple URLs \\(one per line\\) — all will be processed at once\\.\n\n"
-            "*📌 How to use:*\n"
-            "1\\. Choose mode with `/lksfy` or `/direct`\n"
-            "2\\. Paste your URL\\(s\\)\n"
-            "3\\. Get your protected links instantly ⚡\n"
-        )
         home_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🏠 Home", callback_data="go_home")],
         ])
         await query.edit_message_text(
-            help_text,
+            build_help_text(),
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=home_keyboard,
         )
@@ -681,45 +737,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Home button — go back to start message ──
     if query.data == "go_home":
-        first_name = escape(user.first_name or "there")
-        welcome = (
-            f"👋 *Hey {first_name}\\! Welcome to VMMrx Protection Bot* 🛡️\n\n"
-            "I protect your links with *Cloudflare* security —\n"
-            "no one can bypass them\\! ⚡\n\n"
-            "🔗 *lksfy mode* — shorten \\+ protect\n"
-            "🛡️ *Direct mode* — protect only, no shortener\n"
-            "📦 *Bulk support* — multiple links at once\n\n"
-        )
-        if is_admin(user.id):
-            welcome += (
-                "👑 *Admin Commands:*\n"
-                "  `/pending` — View pending users\n"
-                "  `/approve <user\\_id>` — Approve a user\n"
-                "  `/revoke <user\\_id>` — Revoke access\n"
-                "  `/users` — List approved users\n\n"
-            )
-        if is_approved(user.id):
-            welcome += "✅ *Your account is approved\\. Start generating links\\!*"
-            home_keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("🔗 lksfy Mode", callback_data="set_mode:lksfy"),
-                    InlineKeyboardButton("🛡️ Direct Mode", callback_data="set_mode:direct"),
-                ],
-                [InlineKeyboardButton("⚙️ Setup Shortener", callback_data="shortner_open")],
-                [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
-            ])
-        else:
-            welcome += (
-                "⏳ *Your account is pending admin approval\\.*\n"
-                "You'll be notified once approved\\."
-            )
-            home_keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📖 Help & Guide", callback_data="show_help")],
-            ])
         await query.edit_message_text(
-            welcome,
+            build_welcome_text(user, context),
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=home_keyboard,
+            reply_markup=build_home_keyboard(user),
         )
         return
 
@@ -739,14 +760,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         field = query.data.split(":")[1]
         context.user_data["awaiting_shortner"] = field
-        prompt = (
-            "🌐 Send me your *shortener site URL* now\\.\n"
-            "Example: `https://gplinks.in`"
-            if field == "url" else
-            "🔑 Send me your *shortener API key* now\\.\n"
-            "You'll find this in your shortener dashboard \\(usually under *Tools → API*\\)\\."
-        )
-        await query.edit_message_text(prompt, parse_mode=ParseMode.MARKDOWN_V2)
+        if field == "url":
+            prompt = "\n".join([
+                "🌐 *Set Shortener URL*",
+                DIVIDER,
+                "Send your shortener's site domain now\\.",
+                "Example: `https://gplinks.in`",
+            ])
+        else:
+            prompt = "\n".join([
+                "🔑 *Set Shortener API Key*",
+                DIVIDER,
+                "Send your API key now\\.",
+                "Find it in your shortener dashboard — usually under *Tools → API*\\.",
+            ])
+        back_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("◀️ Back", callback_data="shortner_open")],
+        ])
+        await query.edit_message_text(prompt, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=back_keyboard)
         return
 
     if query.data == "shortner_clear":
@@ -767,10 +798,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = mode
         label = "🔗 lksfy \\+ Protect" if mode == "lksfy" else "🛡️ Direct Protect"
         await query.answer(f"{'lksfy' if mode == 'lksfy' else 'Direct'} mode set!")
-        mode_text = (
-            f"{label} *mode activated\\!*\n\n"
-            "Now paste your URLs below 👇"
-        )
+        mode_text = "\n".join([
+            f"{label} — *Activated*",
+            DIVIDER,
+            "Paste your URL\\(s\\) below 👇",
+        ])
         mode_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🏠 Home", callback_data="go_home")],
         ])
