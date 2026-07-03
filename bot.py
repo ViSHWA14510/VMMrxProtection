@@ -258,6 +258,18 @@ async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_approved(user.id):
         await update.message.reply_text("⏳ You're not approved yet. Please wait for admin approval.")
         return
+
+    cfg = get_shortener(user.id)
+    if not cfg["url"] or not cfg["api"]:
+        text, parse_mode, keyboard = shortner_intro_payload(user.id)
+        await update.message.reply_text(
+            "⚠️ *You haven't set up a shortener yet\\.*\n"
+            "`/lksfy` mode needs your own shortener account\\.\n" + DIVIDER,
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=keyboard)
+        return
+
     context.user_data["mode"] = "lksfy"
     await update.message.reply_text(
         "\n".join([
@@ -265,7 +277,7 @@ async def cmd_lksfy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             DIVIDER,
             "Send one or more URLs \\(one per line\\)\\. For each, you'll get:",
             "  •  Original link",
-            "  •  lksfy shortened link",
+            "  •  Your shortener's link",
             "  •  Cloudflare\\-protected link",
         ]),
         parse_mode=ParseMode.MARKDOWN_V2,
