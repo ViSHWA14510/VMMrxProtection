@@ -17,8 +17,6 @@ SITE_URL      = os.environ.get("SITE_URL", "").rstrip("/")
 ADMIN_KEY     = os.environ.get("ADMIN_KEY", "")
 
 # ── Shared ─────────────────────────────────────────────────────────────────────
-LKSFY_API_KEY = os.environ.get("LKSFY_API_KEY", "")
-
 TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 
@@ -48,26 +46,21 @@ async def _worker_create_link(destination: str) -> dict:
 
 
 async def _shorten_lksfy(url: str, shortener_url: str = "", shortener_api: str = "") -> str:
-    """Shorten a URL.
+    """Shorten a URL using the user's own shortener, set via /shortner.
 
-    If shortener_url/shortener_api are provided (a user's own manual shortener,
-    configured via /shortner), that service is used. Otherwise falls back to
-    the bot's global lksfy.com + LKSFY_API_KEY.
-
-    Most shortener sites (GPLinks, ShrinkMe, lksfy, etc.) share the same
+    Most shortener sites (GPLinks, ShrinkMe, urlspay, etc.) share the same
     GET /api?api=KEY&url=URL&format=json convention, returning
     {"status": "success", "shortenedUrl": "..."}.
     """
-    base = (shortener_url or "https://lksfy.com").rstrip("/")
-    api_key = shortener_api or LKSFY_API_KEY
+    if not shortener_url or not shortener_api:
+        raise ValueError("No shortener configured. Use /shortner to set your URL and API key first.")
 
-    if not api_key:
-        raise ValueError("No shortener API key set. Use /shortner to configure one.")
+    base = shortener_url.rstrip("/")
 
     async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
         async with session.get(
             f"{base}/api",
-            params={"api": api_key, "url": url, "format": "json"},
+            params={"api": shortener_api, "url": url, "format": "json"},
         ) as resp:
             data = await resp.json(content_type=None)
             if not resp.ok or data.get("status") != "success":
