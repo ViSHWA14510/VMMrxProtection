@@ -5,6 +5,7 @@ authorization, and force subscribe.
 """
 
 import os
+import sys
 import random
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -83,6 +84,19 @@ def escape(text: str) -> str:
         text = text.replace(ch, f"\\{ch}")
     return text
 
+# ── Small-caps unicode text style (used on link protection cards) ────────────
+_SMALLCAPS_MAP = {
+    "a": "ᴀ", "b": "ʙ", "c": "ᴄ", "d": "ᴅ", "e": "ᴇ", "f": "ꜰ", "g": "ɢ",
+    "h": "ʜ", "i": "ɪ", "j": "ᴊ", "k": "ᴋ", "l": "ʟ", "m": "ᴍ", "n": "ɴ",
+    "o": "ᴏ", "p": "ᴘ", "q": "Q", "r": "ʀ", "s": "ꜱ", "t": "ᴛ", "u": "ᴜ",
+    "v": "ᴠ", "w": "ᴡ", "x": "x", "y": "ʏ", "z": "ᴢ",
+}
+
+def smallcaps(text: str) -> str:
+    """Convert a string to small-caps unicode style (letters only; digits,
+    punctuation, and spacing are left untouched)."""
+    return "".join(_SMALLCAPS_MAP.get(ch.lower(), ch) for ch in text)
+
 # ── UI constants ──────────────────────────────────────────────────────────────
 DIVIDER = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
@@ -116,6 +130,7 @@ def build_welcome_text(user, context: ContextTypes.DEFAULT_TYPE) -> str:
             "  `/approve id`  Approve a user",
             "  `/revoke id`    Revoke a user's access",
             "  `/users`          List all approved users",
+            "  `/restart`        Restart the bot",
         ]
 
     lines += [
@@ -326,20 +341,21 @@ def _truncate_url(url: str, limit: int = 55) -> str:
 
 def build_link_card_text(user, site_name: str, original_url: str, secure_url: str, removed: bool = False) -> str:
     first_name = escape(user.first_name or "there")
+    sc = lambda s: escape(smallcaps(s))
     lines = [
-        "✅ *Link Protected Successfully\\!*" if not removed else "🗑️ *Link Removed*",
+        f"✅ *{sc('Link Protected Successfully!')}*" if not removed else f"🗑️ *{sc('Link Removed')}*",
         "",
-        f"👤 *User:* {first_name}",
-        f"🌐 *Site:* {escape(site_name)}",
+        f"👤 *{sc('User:')}* {first_name}",
+        f"🌐 *{sc('Site:')}* {escape(site_name)}",
         "",
-        "🔗 *Original Link:*",
+        f"🔗 *{sc('Original Link:')}*",
         escape(_truncate_url(original_url)),
         "",
-        "🛡️ *Secure Link:*",
-        escape(secure_url) if not removed else "~this link has been removed~",
+        f"🛡️ *{sc('Secure Link:')}*",
+        escape(secure_url) if not removed else f"~{sc('this link has been removed')}~",
         "",
-        "💡 _This link is fully protected against bypassers\\._" if not removed
-            else "💡 _This link is no longer active\\._",
+        f"💡 _{sc('This link is fully protected against bypassers.')}_" if not removed
+            else f"💡 _{sc('This link is no longer active.')}_",
     ]
     return "\n".join(lines)
 
@@ -753,6 +769,30 @@ async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
+async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not is_admin(user.id):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+    await update.message.reply_text("🔄 *Restarting bot\\.\\.\\.*", parse_mode=ParseMode.MARKDOWN_V2)
+    log.info(f"Restart triggered by admin {user.id}")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+# ── Startup notification ──────────────────────────────────────────────────────
+
+async def notify_admins_on_startup(app: Application):
+    from db import get_admin_ids
+    admin_ids = get_admin_ids()
+    for admin_id in admin_ids:
+        try:
+            await app.bot.send_message(
+                admin_id,
+                "✅ *Bot restarted successfully\\!*",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        except Exception as e:
+            log.warning(f"Could not notify admin {admin_id} on startup: {e}")
+
 async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not is_admin(user.id):
@@ -907,7 +947,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(notify_admins_on_startup).build()
 
     # Commands
     app.add_handler(CommandHandler("start", cmd_start))
@@ -917,6 +957,7 @@ def main():
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("revoke", cmd_revoke))
     app.add_handler(CommandHandler("users", cmd_users))
+    app.add_handler(CommandHandler("restart", cmd_restart))
 
     # Inline buttons
     app.add_handler(CallbackQueryHandler(
