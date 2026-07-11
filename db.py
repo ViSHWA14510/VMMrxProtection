@@ -1,13 +1,32 @@
 """
-SQLite-based persistence for user authorization and admin management.
+MongoDB-based persistence for user authorization, admin management, and
+user-added shortener sites.
 """
 
 import os
-import sqlite3
 import threading
-from contextlib import contextmanager
+from datetime import datetime, timezone
 
-DB_PATH = os.environ.get("DB_PATH", "vmmrx_bot.db")
+from pymongo import MongoClient, ReturnDocument
+
+# ── Connection ────────────────────────────────────────────────────────────────
+MONGO_URL = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL", "")
+DB_NAME   = os.environ.get("MONGO_DB_NAME", "vmmrx_bot")
+
+if not MONGO_URL:
+    raise ValueError(
+        "MONGODB_URI (or MONGO_URL) env var is not set — a MongoDB "
+        "connection string is required."
+    )
+
+_client = MongoClient(MONGO_URL)
+_db = _client[DB_NAME]
+
+users_col    = _db["users"]
+sites_col    = _db["sites"]
+counters_col = _db["counters"]
+
+_lock = threading.Lock()
 
 # Admin IDs from env — comma-separated list of Telegram user IDs
 _ADMIN_IDS: set[int] = set()
@@ -17,47 +36,28 @@ for _part in _raw.split(","):
     if _part.isdigit():
         _ADMIN_IDS.add(int(_part))
 
-_lock = threading.Lock()
-
 # ── Init ──────────────────────────────────────────────────────────────────────
 
 def init_db():
-    with _conn() as con:
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                user_id   INTEGER PRIMARY KEY,
-                username  TEXT    DEFAULT '',
-                full_name TEXT    DEFAULT '',
-                approved  INTEGER DEFAULT 0,
-                pending   INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS sites (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id     INTEGER NOT NULL,
-                domain      TEXT    NOT NULL,
-                api_key     TEXT    NOT NULL,
-                links_count INTEGER DEFAULT 0,
-                created_at  TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        con.commit()
-        existing_cols = {row["name"] for row in con.execute("PRAGMA table_info(sites)").fetchall()}
-        if "links_count" not in existing_cols:
-            con.execute("ALTER TABLE sites ADD COLUMN links_count INTEGER DEFAULT 0")
-        con.commit()
+    """Create indexes. Mongo creates collections lazily on first insert."""
+    users_col.create_index("user_id", unique=True)
+    sites_col.create_index("user_id")
+    sites_col.create_index("id", unique=True)
 
-@contextmanager
-def _conn():
+def _next_site_id() -> int:
+    """Atomic auto-increment counter, mimicking SQLite's AUTOINCREMENT id
+    so existing callback_data (e.g. 'site_view:123') keeps working."""
     with _lock:
-        con = sqlite3.connect(DB_PATH)
-        con.row_factory = sqlite3.Row
-        try:
-            yield con
-        finally:
-            con.close()
+        doc = counters_col.find_one_and_update(
+            {"_id": "site_id"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        return doc["seq"]
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 init_db()
 
@@ -73,124 +73,136 @@ def get_admin_ids() -> list[int]:
 
 def save_user(user_id: int, username: str, full_name: str):
     """Upsert user record (does not change approved/pending status)."""
-    with _conn() as con:
-        con.execute("""
-            INSERT INTO users (user_id, username, full_name)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                username  = excluded.username,
-                full_name = excluded.full_name
-        """, (user_id, username, full_name))
-        con.commit()
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {"username": username, "full_name": full_name},
+            "$setOnInsert": {
+                "approved": False,
+                "pending": False,
+                "created_at": _now_iso(),
+            },
+        },
+        upsert=True,
+    )
 
 def add_pending_user(user_id: int, username: str, full_name: str):
     """Mark user as pending (if not already approved)."""
-    with _conn() as con:
-        con.execute("""
-            INSERT INTO users (user_id, username, full_name, pending)
-            VALUES (?, ?, ?, 1)
-            ON CONFLICT(user_id) DO UPDATE SET
-                username  = excluded.username,
-                full_name = excluded.full_name,
-                pending   = CASE WHEN approved = 1 THEN 0 ELSE 1 END
-        """, (user_id, username, full_name))
-        con.commit()
+    existing = users_col.find_one({"user_id": user_id})
+    already_approved = bool(existing and existing.get("approved"))
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "username": username,
+                "full_name": full_name,
+                "pending": not already_approved,
+            },
+            "$setOnInsert": {
+                "approved": False,
+                "created_at": _now_iso(),
+            },
+        },
+        upsert=True,
+    )
 
 def approve_user(user_id: int):
-    with _conn() as con:
-        con.execute("""
-            INSERT INTO users (user_id, approved, pending)
-            VALUES (?, 1, 0)
-            ON CONFLICT(user_id) DO UPDATE SET
-                approved = 1,
-                pending  = 0
-        """, (user_id,))
-        con.commit()
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {"approved": True, "pending": False},
+            "$setOnInsert": {
+                "username": "",
+                "full_name": "",
+                "created_at": _now_iso(),
+            },
+        },
+        upsert=True,
+    )
 
 def revoke_user(user_id: int):
-    with _conn() as con:
-        con.execute("""
-            UPDATE users SET approved = 0, pending = 0
-            WHERE user_id = ?
-        """, (user_id,))
-        con.commit()
+    users_col.update_one(
+        {"user_id": user_id},
+        {"$set": {"approved": False, "pending": False}},
+    )
 
 def is_approved(user_id: int) -> bool:
     if is_admin(user_id):
         return True
-    with _conn() as con:
-        row = con.execute(
-            "SELECT approved FROM users WHERE user_id = ?", (user_id,)
-        ).fetchone()
-        return bool(row and row["approved"])
+    doc = users_col.find_one({"user_id": user_id})
+    return bool(doc and doc.get("approved"))
 
 def get_pending_users() -> list[dict]:
-    with _conn() as con:
-        rows = con.execute(
-            "SELECT user_id, username, full_name FROM users WHERE pending = 1 AND approved = 0"
-        ).fetchall()
-        return [dict(r) for r in rows]
+    docs = users_col.find({"pending": True, "approved": False})
+    return [
+        {"user_id": d["user_id"], "username": d.get("username", ""), "full_name": d.get("full_name", "")}
+        for d in docs
+    ]
 
 def get_all_users() -> list[dict]:
-    with _conn() as con:
-        rows = con.execute(
-            "SELECT user_id, username, full_name, approved, pending FROM users ORDER BY created_at DESC"
-        ).fetchall()
-        return [dict(r) for r in rows]
+    docs = users_col.find().sort("created_at", -1)
+    return [
+        {
+            "user_id": d["user_id"],
+            "username": d.get("username", ""),
+            "full_name": d.get("full_name", ""),
+            "approved": d.get("approved", False),
+            "pending": d.get("pending", False),
+        }
+        for d in docs
+    ]
 
 def get_user_info(user_id: int) -> dict | None:
-    with _conn() as con:
-        row = con.execute(
-            "SELECT user_id, username, full_name, approved FROM users WHERE user_id = ?",
-            (user_id,)
-        ).fetchone()
-        return dict(row) if row else None
+    d = users_col.find_one({"user_id": user_id})
+    if not d:
+        return None
+    return {
+        "user_id": d["user_id"],
+        "username": d.get("username", ""),
+        "full_name": d.get("full_name", ""),
+        "approved": d.get("approved", False),
+    }
 
 # ── Sites (user-added shortener sites) ────────────────────────────────────────
 
 def add_site(user_id: int, domain: str, api_key: str) -> int:
     """Add a new shortener site for a user. Returns the new site's id."""
-    with _conn() as con:
-        cur = con.execute(
-            "INSERT INTO sites (user_id, domain, api_key) VALUES (?, ?, ?)",
-            (user_id, domain.rstrip("/").strip(), api_key.strip()),
-        )
-        con.commit()
-        return cur.lastrowid
+    site_id = _next_site_id()
+    sites_col.insert_one({
+        "id": site_id,
+        "user_id": user_id,
+        "domain": domain.rstrip("/").strip(),
+        "api_key": api_key.strip(),
+        "links_count": 0,
+        "created_at": _now_iso(),
+    })
+    return site_id
+
+def _site_dict(d: dict) -> dict:
+    return {
+        "id": d["id"],
+        "domain": d["domain"],
+        "api_key": d["api_key"],
+        "links_count": d.get("links_count", 0),
+        "created_at": d.get("created_at", ""),
+    }
 
 def get_sites(user_id: int) -> list[dict]:
     """Returns all sites for a user, oldest first (index 1 = first/default site)."""
-    with _conn() as con:
-        rows = con.execute(
-            "SELECT id, domain, api_key, links_count, created_at FROM sites WHERE user_id = ? ORDER BY id ASC",
-            (user_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    docs = sites_col.find({"user_id": user_id}).sort("id", 1)
+    return [_site_dict(d) for d in docs]
 
 def get_site(site_id: int, user_id: int) -> dict | None:
-    with _conn() as con:
-        row = con.execute(
-            "SELECT id, domain, api_key, links_count, created_at FROM sites WHERE id = ? AND user_id = ?",
-            (site_id, user_id),
-        ).fetchone()
-        return dict(row) if row else None
+    d = sites_col.find_one({"id": site_id, "user_id": user_id})
+    return _site_dict(d) if d else None
 
 def get_default_site(user_id: int) -> dict | None:
     """Returns the user's first-added site (used automatically when protecting links)."""
-    with _conn() as con:
-        row = con.execute(
-            "SELECT id, domain, api_key, links_count, created_at FROM sites WHERE user_id = ? ORDER BY id ASC LIMIT 1",
-            (user_id,),
-        ).fetchone()
-        return dict(row) if row else None
+    d = sites_col.find_one({"user_id": user_id}, sort=[("id", 1)])
+    return _site_dict(d) if d else None
 
 def increment_site_links(site_id: int):
-    with _conn() as con:
-        con.execute("UPDATE sites SET links_count = links_count + 1 WHERE id = ?", (site_id,))
-        con.commit()
+    sites_col.update_one({"id": site_id}, {"$inc": {"links_count": 1}})
 
 def delete_site(site_id: int, user_id: int):
-    with _conn() as con:
-        con.execute("DELETE FROM sites WHERE id = ? AND user_id = ?", (site_id, user_id))
-        con.commit()
-
+    sites_col.delete_one({"id": site_id, "user_id": user_id})
