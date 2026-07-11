@@ -4,245 +4,182 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Verify to Continue — VM-MRX-PROTECTION</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  --b0:#00040f;
-  --b1:#000d1f;
-  --b2:#001433;
-  --b3:#001f4d;
-  --b4:#003080;
-  --b5:#0050cc;
-  --b6:#d97706;
-  --b7:#fbbf24;
-  --b8:#fde68a;
-  --b9:#fef3c7;
-  --ba:#fffbeb;
-  --gold:#f59e0b;
-  --glow: 0 0 20px rgba(245,158,11,0.4), 0 0 60px rgba(245,158,11,0.15);
+  --purple:#a78bfa;
+  --pink:#f9a8d4;
+  --indigo:#6366f1;
+  --ink:#334155;
+  --muted:#64748b;
+  --card:#ffffff;
+  --soft-shadow: 0 20px 60px -15px rgba(99,102,241,0.25), 0 8px 24px -8px rgba(236,72,153,0.15);
 }
 
-html,body{height:100%;background:var(--b0);color:var(--b8);font-family:'Exo 2',sans-serif;overflow:hidden}
+html,body{height:100%;font-family:'Inter',sans-serif;color:var(--ink)}
 
-body::before{
-  content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,1 58,16 58,46 30,61 2,46 2,16' fill='none' stroke='rgba(217,119,6,0.06)' stroke-width='0.5'/%3E%3C/svg%3E");
-  background-size:60px 52px;
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 10% 10%, #c4b5fd 0%, transparent 45%),
+    radial-gradient(circle at 90% 20%, #ddd6fe 0%, transparent 50%),
+    radial-gradient(circle at 20% 90%, #fbcfe8 0%, transparent 45%),
+    radial-gradient(circle at 90% 90%, #fbcfe8 0%, transparent 50%),
+    linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
+  background-attachment:fixed;
 }
 
-body::after{
-  content:'';position:fixed;inset:0;z-index:2;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.12) 4px);
-  animation:scanMove 6s linear infinite;
-}
-@keyframes scanMove{from{background-position:0 0}to{background-position:0 48px}}
-
-.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:1;animation:orbDrift 15s ease-in-out infinite alternate}
-.orb1{width:500px;height:500px;background:rgba(120,53,15,0.2);top:-150px;left:-150px;animation-delay:0s}
-.orb2{width:400px;height:400px;background:rgba(245,158,11,0.08);bottom:-100px;right:-100px;animation-delay:5s}
-.orb3{width:300px;height:300px;background:rgba(217,119,6,0.12);top:30%;left:55%;animation-delay:2s}
-@keyframes orbDrift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.1)}}
-
-.scene{position:relative;z-index:10;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.scene{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 
 .card{
-  width:100%;max-width:500px;
-  background:rgba(15,8,2,0.88);
-  border:1px solid rgba(217,119,6,0.3);
-  border-radius:6px;
-  padding:44px 40px 40px;
+  width:100%;max-width:460px;
+  background:var(--card);
+  border-radius:28px;
+  padding:40px 36px 32px;
   position:relative;overflow:hidden;
-  backdrop-filter:blur(24px);
-  box-shadow:var(--glow),inset 0 1px 0 rgba(251,191,36,0.1);
-  animation:cardRise 0.7s cubic-bezier(0.16,1,0.3,1) both;
+  box-shadow:var(--soft-shadow);
+  animation:cardRise 0.6s cubic-bezier(0.16,1,0.3,1) both;
 }
-@keyframes cardRise{from{opacity:0;transform:translateY(30px) scale(0.96)}to{opacity:1;transform:none}}
-
-.card::before{
-  content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;
-  background:linear-gradient(90deg,transparent,var(--gold),var(--b7),transparent);
-  animation:beamSweep 3s ease-in-out infinite;
-}
-@keyframes beamSweep{0%{left:-100%}60%,100%{left:100%}}
-
-.corner{position:absolute;width:16px;height:16px;border-color:var(--b6);border-style:solid}
-.corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
-.corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
-.corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
-.corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+@keyframes cardRise{from{opacity:0;transform:translateY(24px) scale(0.97)}to{opacity:1;transform:none}}
 
 .hbar{
-  display:flex;align-items:center;gap:8px;margin-bottom:32px;
-  font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.18em;
+  display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px;
+  font-size:11px;color:var(--muted);letter-spacing:0.14em;font-weight:600;text-transform:uppercase;
 }
-.hbar-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);animation:blip 1.8s ease-in-out infinite}
-@keyframes blip{0%,100%{opacity:1;box-shadow:0 0 6px var(--gold)}50%{opacity:0.25;box-shadow:none}}
-.hbar-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(217,119,6,0.3),transparent)}
-#clock{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.1em}
+.hbar-dot{width:6px;height:6px;border-radius:50%;background:var(--indigo);animation:blip 1.8s ease-in-out infinite}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:0.3}}
 
-.shield-area{display:flex;justify-content:center;margin-bottom:24px}
+.shield-area{display:flex;justify-content:center;margin-bottom:22px}
 .ring-outer{
-  width:100px;height:100px;border-radius:50%;
-  border:1px solid rgba(217,119,6,0.2);
+  width:96px;height:96px;border-radius:26px;
+  background:linear-gradient(145deg,#ede9fe,#fdf2f8);
+  border:1px solid rgba(167,139,250,0.35);
   display:flex;align-items:center;justify-content:center;
-  position:relative;
+  box-shadow:0 0 0 8px rgba(167,139,250,0.08), inset 0 2px 6px rgba(255,255,255,0.9);
   animation:ringPulse 3s ease-in-out infinite;
 }
-@keyframes ringPulse{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,0)}50%{box-shadow:0 0 0 16px rgba(217,119,6,0.05)}}
-.ring-outer::before{
-  content:'';position:absolute;inset:-12px;border-radius:50%;
-  border:1px dashed rgba(217,119,6,0.18);
-  animation:rotateSlow 25s linear infinite;
-}
-.ring-outer::after{
-  content:'';position:absolute;inset:-22px;border-radius:50%;
-  border:1px solid rgba(245,158,11,0.07);
-  animation:rotateSlow 40s linear infinite reverse;
-}
-@keyframes rotateSlow{to{transform:rotate(360deg)}}
-.shield-svg{width:48px;height:48px;filter:drop-shadow(0 0 8px rgba(217,119,6,0.6))}
+@keyframes ringPulse{0%,100%{box-shadow:0 0 0 8px rgba(167,139,250,0.08)}50%{box-shadow:0 0 0 14px rgba(167,139,250,0.14)}}
+.shield-svg{width:44px;height:44px;filter:drop-shadow(0 4px 10px rgba(99,102,241,0.35))}
 
 .title{
-  text-align:center;font-family:'Orbitron',monospace;
-  font-size:22px;font-weight:900;letter-spacing:0.08em;
-  color:var(--b8);text-transform:uppercase;margin-bottom:6px;
-  animation:titleGlow 3s ease-in-out infinite alternate;
+  text-align:center;font-family:'Playfair Display',serif;
+  font-size:26px;font-weight:800;letter-spacing:0.01em;
+  color:#312e81;margin-bottom:8px;
 }
-@keyframes titleGlow{from{text-shadow:0 0 10px rgba(251,191,36,0.3)}to{text-shadow:0 0 30px rgba(251,191,36,0.7),0 0 60px rgba(217,119,6,0.3)}}
-.title span{color:var(--gold)}
+.title span{color:var(--indigo)}
 
 .subtitle{
-  text-align:center;font-family:'Orbitron',monospace;font-size:10px;
-  color:var(--b5);letter-spacing:0.22em;margin-bottom:32px;
+  text-align:center;font-size:14px;color:var(--muted);
+  margin-bottom:26px;line-height:1.5;
 }
 
-.badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+.badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
 .badge{
-  display:flex;align-items:center;gap:6px;padding:5px 14px;
-  border:1px solid rgba(217,119,6,0.25);border-radius:2px;
-  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);
-  letter-spacing:0.12em;background:rgba(28,16,3,0.5);
-  animation:badgeFade 0.6s ease both;
+  display:flex;align-items:center;gap:6px;padding:6px 14px;
+  border-radius:999px;
+  font-size:11px;color:#5b21b6;font-weight:600;
+  letter-spacing:0.02em;background:#f5f3ff;
+  border:1px solid #e9d5ff;
+  animation:badgeFade 0.5s ease both;
 }
-.badge:nth-child(2){animation-delay:0.1s}.badge:nth-child(3){animation-delay:0.2s}
+.badge:nth-child(2){animation-delay:0.08s}.badge:nth-child(3){animation-delay:0.16s}
 @keyframes badgeFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.badge-pip{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.badge-pip{width:5px;height:5px;border-radius:50%;background:var(--indigo)}
 
 #progressWrap{display:none;flex-direction:column;align-items:center;gap:16px;padding:16px 0}
 .spinner{
-  width:48px;height:48px;border-radius:50%;
-  border:3px solid rgba(217,119,6,0.2);border-top-color:var(--gold);
+  width:44px;height:44px;border-radius:50%;
+  border:3px solid #ede9fe;border-top-color:var(--indigo);
   animation:spin 0.8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.progress-label{
-  font-family:'Orbitron',monospace;font-size:11px;color:var(--b6);
-  letter-spacing:0.16em;text-transform:uppercase;
-}
+.progress-label{font-size:13px;color:var(--muted);font-weight:600;}
 
-#successWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px;animation:successIn 0.5s ease both}
+#successWrap{display:none;flex-direction:column;align-items:center;gap:12px;padding:16px 0 4px;animation:successIn 0.5s ease both}
 @keyframes successIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
 .s-icon{
-  width:72px;height:72px;border-radius:50%;
-  border:2px solid var(--gold);
+  width:68px;height:68px;border-radius:50%;
+  background:linear-gradient(145deg,#d1fae5,#ecfdf5);
+  border:2px solid #34d399;
   display:flex;align-items:center;justify-content:center;
-  font-size:30px;color:var(--gold);
-  position:relative;
-  animation:sGlow 1.5s ease-in-out infinite alternate;
+  font-size:28px;color:#059669;
+  box-shadow:0 8px 20px -6px rgba(16,185,129,0.4);
 }
-.s-icon::before{
-  content:'';position:absolute;inset:-8px;border-radius:50%;
-  border:1px solid rgba(245,158,11,0.2);animation:rotateSlow 8s linear infinite;
-}
-@keyframes sGlow{from{box-shadow:0 0 16px rgba(245,158,11,0.3)}to{box-shadow:0 0 40px rgba(245,158,11,0.7),0 0 80px rgba(217,119,6,0.3)}}
 
-.s-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;letter-spacing:0.15em;color:var(--ba);text-transform:uppercase;text-shadow:0 0 20px rgba(251,191,36,0.5)}
-.s-sub{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.2em}
+.s-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:800;color:#065f46}
+.s-sub{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0.04em}
 
-.redir-track{width:100%;height:2px;background:var(--b2);border-radius:2px;overflow:hidden;margin-top:4px}
-.redir-fill{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,var(--b5),var(--gold));box-shadow:0 0 8px var(--gold);animation:redirAnim 1.1s linear 0.1s forwards}
+.redir-track{width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px}
+.redir-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--indigo),#a78bfa);animation:redirAnim 1.1s linear 0.1s forwards}
 @keyframes redirAnim{to{width:100%}}
 
-.manual-link{display:none;font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);text-decoration:none;letter-spacing:0.12em;margin-top:4px;transition:color 0.2s}
-.manual-link:hover{color:var(--gold)}
+.redir-pill{
+  width:100%;text-align:center;padding:12px 16px;margin-top:6px;
+  background:#d1fae5;border:1px solid #6ee7b7;border-radius:999px;
+  color:#059669;font-size:14px;font-weight:700;letter-spacing:0.01em;
+}
+
+.manual-link{display:none;font-size:12px;color:var(--indigo);text-decoration:none;font-weight:600;margin-top:4px;transition:color 0.2s}
+.manual-link:hover{color:#4338ca}
 
 .footer{
-  display:flex;align-items:center;justify-content:space-between;
-  border-top:1px solid rgba(217,119,6,0.12);padding-top:16px;margin-top:24px;
-  font-family:'Orbitron',monospace;font-size:8px;color:var(--b4);letter-spacing:0.14em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  border-top:1px solid #f1f5f9;padding-top:16px;margin-top:24px;
+  font-size:11px;color:#94a3b8;font-weight:500;
 }
-.footer em{color:var(--b5);font-style:normal}
-.footer-sep{color:rgba(217,119,6,0.2)}
-
-#stars,#particles{position:fixed;inset:0;z-index:1;pointer-events:none}
-#particles{opacity:0.5}
+.footer em{color:#6366f1;font-style:normal;font-weight:700}
+.footer-sep{color:#e2e8f0}
 
 /* ── Cloudflare Turnstile ── */
 .turnstile-wrap{
   display:flex;flex-direction:column;align-items:center;gap:12px;
-  padding:18px;margin-bottom:8px;
-  border:1px solid rgba(217,119,6,0.2);border-radius:4px;
-  background:rgba(20,11,2,0.5);
+  padding:20px 16px;margin-bottom:8px;
+  border:1px solid #ede9fe;border-radius:18px;
+  background:#faf9ff;
 }
 .turnstile-label{
-  font-family:'Orbitron',monospace;font-size:9px;color:var(--b6);
-  letter-spacing:0.2em;text-transform:uppercase;
+  font-size:12px;color:#6d28d9;font-weight:700;
+  letter-spacing:0.03em;
 }
-.cf-turnstile{
-  border-radius:3px;overflow:hidden;
-  box-shadow:0 0 20px rgba(217,119,6,0.2);
-}
-.turnstile-status{
-  font-family:'Orbitron',monospace;font-size:9px;
-  color:var(--b5);letter-spacing:0.14em;
-  transition:color 0.3s;
-}
-.turnstile-status.success{color:var(--gold);text-shadow:0 0 8px rgba(245,158,11,0.6)}
-.turnstile-status.error{color:#ff6680}
+.cf-turnstile{border-radius:12px;overflow:hidden}
+.turnstile-status{font-size:12px;color:var(--muted);font-weight:600;transition:color 0.3s}
+.turnstile-status.success{color:#059669}
+.turnstile-status.error{color:#e11d48}
 
 /* ── Error State ── */
 #errorWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px}
 .err-icon{
-  width:72px;height:72px;border-radius:50%;
-  border:2px solid #ff4466;
+  width:68px;height:68px;border-radius:50%;
+  background:linear-gradient(145deg,#fee2e2,#fef2f2);
+  border:2px solid #fb7185;
   display:flex;align-items:center;justify-content:center;
-  font-size:30px;color:#ff4466;
+  font-size:28px;color:#e11d48;
+  box-shadow:0 8px 20px -6px rgba(225,29,72,0.35);
 }
-.err-title{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;letter-spacing:0.1em;color:#ff6680;text-transform:uppercase}
-.err-msg{font-family:'Orbitron',monospace;font-size:9px;color:var(--b5);letter-spacing:0.14em;text-align:center;max-width:300px;line-height:1.6}
+.err-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;color:#be123c}
+.err-msg{font-size:13px;color:var(--muted);text-align:center;max-width:300px;line-height:1.6}
 .btn-retry{
-  padding:10px 28px;border:1px solid rgba(217,119,6,0.4);border-radius:3px;
-  background:rgba(28,16,3,0.5);color:var(--b8);
-  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:0.18em;
-  cursor:pointer;transition:all 0.2s;text-transform:uppercase;
+  padding:11px 30px;border:none;border-radius:999px;
+  background:linear-gradient(135deg,var(--indigo),#a78bfa);color:#fff;
+  font-size:13px;font-weight:700;letter-spacing:0.02em;
+  cursor:pointer;transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 8px 20px -6px rgba(99,102,241,0.5);
 }
-.btn-retry:hover{border-color:var(--gold);color:var(--gold)}
+.btn-retry:hover{transform:translateY(-1px);box-shadow:0 12px 24px -6px rgba(99,102,241,0.55)}
 </style>
 </head>
 <body>
 
-<canvas id="stars"></canvas>
-<canvas id="particles"></canvas>
-<div class="orb orb1"></div>
-<div class="orb orb2"></div>
-<div class="orb orb3"></div>
-
 <div class="scene">
   <div class="card">
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
 
     <div class="hbar">
       <div class="hbar-dot"></div>
       VM-MRX PROTECTION
-      <div class="hbar-line"></div>
-      <span id="clock"></span>
     </div>
 
     <div class="shield-area">
@@ -250,33 +187,27 @@ body::after{
         <svg class="shield-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#d97706"/>
-              <stop offset="100%" stop-color="#f59e0b"/>
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#a78bfa"/>
             </linearGradient>
           </defs>
           <path d="M26 4L9 10V23C9 33.5 16.8 43.2 26 45C35.2 43.2 43 33.5 43 23V10L26 4Z"
-            stroke="url(#sg)" stroke-width="1.5" fill="rgba(120,53,15,0.15)" stroke-linejoin="round"/>
-          <path d="M17 25.5L23.5 32L35 19" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            stroke="url(#sg)" stroke-width="2" fill="rgba(167,139,250,0.12)" stroke-linejoin="round"/>
+          <path d="M17 25.5L23.5 32L35 19" stroke="#6366f1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
     </div>
 
     <div class="title">Verification <span>Required</span></div>
-    <div class="subtitle">ANTI-BOT PROTECTION ACTIVE</div>
-
-    <div class="badges">
-      <div class="badge"><div class="badge-pip"></div>ENCRYPTED</div>
-      <div class="badge"><div class="badge-pip"></div>BOT PREVENTION</div>
-      <div class="badge"><div class="badge-pip"></div>FAST REDIRECT</div>
-    </div>
+    <div class="subtitle">We just need to confirm you're human before continuing.</div>
 
     <!-- INITIAL STATE (Turnstile) -->
     <div id="initialState">
       <div class="turnstile-wrap">
-        <div class="turnstile-label">&#128274; SECURING YOUR REDIRECT</div>
+        <div class="turnstile-label">&#128274; Securing your redirect</div>
         <div class="cf-turnstile"
           data-sitekey="0x4AAAAAADH1B2TXIqfqar1f"
-          data-theme="dark"
+          data-theme="light"
           data-callback="onTurnstileSuccess"
           data-error-callback="onTurnstileError"
           data-expired-callback="onTurnstileExpired"
@@ -296,8 +227,8 @@ body::after{
     <div id="successWrap">
       <div class="s-icon">&#10003;</div>
       <div class="s-title">Verified!</div>
-      <div class="s-sub">REDIRECTING NOW... &#128640;</div>
-      <div class="redir-track"><div class="redir-fill"></div></div>
+      <div class="s-sub">Your secure connection is established.</div>
+      <div class="redir-pill" id="redirPill">Auto-redirecting in 5s...</div>
       <a class="manual-link" id="mLink" href="#">&#8594; Click here if not redirected</a>
     </div>
 
@@ -306,64 +237,20 @@ body::after{
       <div class="err-icon">&#10007;</div>
       <div class="err-title">Verification Failed</div>
       <div class="err-msg" id="errMsg">Something went wrong. Please try again.</div>
-      <button class="btn-retry" onclick="retryVerification()">&#8635; RETRY</button>
+      <button class="btn-retry" onclick="retryVerification()">&#8635; Retry</button>
     </div>
 
     <div class="footer">
       <em>VM-MRX</em>
-      <span class="footer-sep">///</span>
-      <em>PROTECTION v2.0</em>
-      <span class="footer-sep">///</span>
-      <em>SHIELD ACTIVE</em>
+      <span class="footer-sep">•</span>
+      <span>Protection v2.0</span>
+      <span class="footer-sep">•</span>
+      <span>Shield Active</span>
     </div>
   </div>
 </div>
 
 <script>
-/* ── Clock ── */
-(function tick(){
-  const el=document.getElementById('clock');
-  if(el) el.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});
-  setTimeout(tick,1000);
-})();
-
-/* ── Stars ── */
-(function(){
-  const c=document.getElementById('stars'),cx=c.getContext('2d');
-  function resize(){c.width=innerWidth;c.height=innerHeight} resize();
-  window.addEventListener('resize',resize);
-  const S=Array.from({length:200},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.2+0.2,a:Math.random(),da:(Math.random()-0.5)*0.008}));
-  function draw(){
-    cx.clearRect(0,0,c.width,c.height);
-    S.forEach(s=>{
-      s.a=Math.max(0.05,Math.min(1,s.a+s.da));
-      if(s.a<=0.05||s.a>=1) s.da*=-1;
-      cx.beginPath();cx.arc(s.x,s.y,s.r,0,Math.PI*2);
-      cx.fillStyle='rgba(251,191,36,'+s.a+')';cx.fill();
-    });
-    requestAnimationFrame(draw);
-  } draw();
-})();
-
-/* ── Particles ── */
-(function(){
-  const c=document.getElementById('particles'),cx=c.getContext('2d');
-  function resize(){c.width=innerWidth;c.height=innerHeight} resize();
-  window.addEventListener('resize',resize);
-  const P=Array.from({length:40},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-0.5)*0.5,vy:(Math.random()-0.5)*0.5,r:Math.random()*2+0.5,a:Math.random()*0.4+0.1}));
-  function draw(){
-    cx.clearRect(0,0,c.width,c.height);
-    P.forEach(p=>{
-      p.x+=p.vx;p.y+=p.vy;
-      if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;
-      if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;
-      cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      cx.fillStyle='rgba(245,158,11,'+p.a+')';cx.fill();
-    });
-    requestAnimationFrame(draw);
-  } draw();
-})();
-
 /* ── Token extraction helper ── */
 // Handles both /token/<long-token> (legacy) and /s/<short-code> (new)
 // Returns: { token: string, isShort: bool } or null
@@ -527,7 +414,7 @@ function startVerify(redirectUrl){
   showSuccess(redirectUrl);
 }
 
-/* ── Success + Redirect ── */
+/* ── Success + Redirect (green countdown pill) ── */
 // FIX: redirectUrl parameter is now always passed correctly from startVerify
 function showSuccess(redirectUrl){
   setTimeout(()=>{
@@ -538,10 +425,24 @@ function showSuccess(redirectUrl){
       link.href = redirectUrl;
       link.style.display = 'inline';
 
-      // Redirect automatically — no click required
+      const pill = document.getElementById('redirPill');
+      let secs = 5;
+      pill.textContent = 'Auto-redirecting in ' + secs + 's...';
+
+      const timer = setInterval(()=>{
+        secs -= 1;
+        if(secs > 0){
+          pill.textContent = 'Auto-redirecting in ' + secs + 's...';
+        } else {
+          clearInterval(timer);
+          pill.textContent = 'Redirecting now...';
+        }
+      }, 1000);
+
+      // Redirect automatically after the countdown — no click required
       setTimeout(()=>{
         window.location.href = redirectUrl;
-      }, 1200);
+      }, 5000);
     } else {
       // FIX: Show proper error instead of broken "URL missing" message
       showError('Redirect URL is missing. This link may be invalid.');
