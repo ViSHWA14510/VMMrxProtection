@@ -104,45 +104,46 @@ DIVIDER = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 #    perfectly in sync so the UI never drifts between screens) ────────────────
 
 def build_welcome_text(user, context: ContextTypes.DEFAULT_TYPE) -> str:
+    sc = lambda s: escape(smallcaps(s))
     first_name = escape(user.first_name or "there")
     bot_name = escape(BOT_NAME.upper())
     maintainer = escape(MAINTAINER_NAME)
 
     lines = [
-        f"👋 Hello *{first_name}*,",
+        f"👋 {sc('Hello')} *{first_name}*,",
         "",
-        f"🚀 Welcome to *{bot_name}*",
+        f"🚀 {sc('Welcome to')} *{bot_name}*",
         "",
-        "🔒 *The ultimate link protection system*",
-        "Secure your links and block all bypass attempts instantly with our advanced security layers\\.",
+        f"🔒 *{sc('The ultimate link protection system')}*",
+        sc("Secure your links and block all bypass attempts instantly with our advanced security layers."),
         "",
-        "✨ *Core features:*",
-        "🛡️ Advanced anti\\-bypass shield",
-        "⚡ Lightning fast \\& seamless UX",
-        "📦 Bulk link processing",
+        f"✨ *{sc('Core features:')}*",
+        f"🛡️ {sc('Advanced anti-bypass shield')}",
+        f"⚡ {sc('Lightning fast & seamless UX')}",
+        f"📦 {sc('Bulk link processing')}",
     ]
 
     if is_admin(user.id):
         lines += [
             "",
-            "👑 *Admin Panel:*",
-            "  `/pending`        View users awaiting approval",
-            "  `/approve id`  Approve a user",
-            "  `/revoke id`    Revoke a user's access",
-            "  `/users`          List all approved users",
-            "  `/restart`        Restart the bot",
+            f"👑 *{sc('Admin Panel:')}*",
+            f"  `/pending`        {sc('View users awaiting approval')}",
+            f"  `/approve id`  {sc('Approve a user')}",
+            "  `/revoke id`    " + sc("Revoke a user's access"),
+            f"  `/users`          {sc('List all approved users')}",
+            f"  `/restart`        {sc('Restart the bot')}",
         ]
 
     lines += [
         "",
-        f"Maintained by: {maintainer}",
+        f"{sc('Maintained by:')} {maintainer}",
         "",
     ]
 
     if is_approved(user.id):
-        lines.append("✅ *Account approved — just send a link to get started\\!*")
+        lines.append(f"✅ *{sc('Account approved — just send a link to get started!')}*")
     else:
-        lines.append("⏳ *Awaiting admin approval\\.* You'll be notified the moment you're approved\\.")
+        lines.append(f"⏳ *{sc('Awaiting admin approval.')}* " + sc("You'll be notified the moment you're approved."))
 
     return "\n".join(lines)
 
@@ -164,44 +165,47 @@ def build_home_keyboard(user) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 def build_help_text() -> str:
+    sc = lambda s: escape(smallcaps(s))
     return "\n".join([
-        "📖 *Help & Guide*",
+        f"📖 *{sc('Help & Guide')}*",
         DIVIDER,
-        "*🛡️ Direct Protect*",
-        "Send any link and I'll wrap it in Cloudflare protection\\.",
-        "You get: `Original` → `Protected link`",
+        f"*🛡️ {sc('Direct Protect')}*",
+        sc("Send any link and I'll wrap it in Cloudflare protection."),
+        f"{sc('You get:')} `Original` → `Protected link`",
         "",
-        "*📦 Bulk Mode*",
-        "Paste multiple URLs \\(one per line\\) — all are processed together\\.",
+        f"*📦 {sc('Bulk Mode')}*",
+        sc("Paste multiple URLs (one per line) — all are processed together."),
         "",
         DIVIDER,
-        "*📌 Quick Start*",
-        "1️⃣ Paste one or more links",
-        "2️⃣ Get your protected link\\(s\\) instantly ⚡",
+        f"*📌 {sc('Quick Start')}*",
+        f"1️⃣ {sc('Paste one or more links')}",
+        f"2️⃣ {sc('Get your protected link(s) instantly')} ⚡",
     ])
 
 def build_about_text() -> str:
+    sc = lambda s: escape(smallcaps(s))
     return "\n".join([
-        "👤 *About*",
+        f"👤 *{sc('About')}*",
         DIVIDER,
-        f"🤖 Bot        →  *{escape(BOT_NAME)}*",
-        f"👑 Maintainer →  *{escape(MAINTAINER_NAME)}*",
-        "🛡️ Purpose    →  Cloudflare\\-backed link protection",
+        f"🤖 {sc('Bot')}        →  *{escape(BOT_NAME)}*",
+        f"👑 {sc('Maintainer')} →  *{escape(MAINTAINER_NAME)}*",
+        f"🛡️ {sc('Purpose')}    →  {sc('Cloudflare-backed link protection')}",
     ])
 
 def build_dashboard_text() -> str:
+    sc = lambda s: escape(smallcaps(s))
     return "\n".join([
-        "🖥️ *Dashboard*",
-        "🔧 Manage your links and system",
+        f"🖥️ *{sc('Dashboard')}*",
+        f"🔧 {sc('Manage your links and system')}",
         "",
-        "Access all premium features and control your protected links from here:",
+        sc("Access all premium features and control your protected links from here:"),
         "",
-        "🌐 Manage supported sites",
-        "📊 View statistics \\& performance",
-        "🕓 Track your activity",
-        "🤖 Access developer API",
+        f"🌐 {sc('Manage supported sites')}",
+        f"📊 {sc('View statistics & performance')}",
+        f"🕓 {sc('Track your activity')}",
+        f"🤖 {sc('Access developer API')}",
         "",
-        "Everything you need in one place\\.",
+        sc("Everything you need in one place."),
     ])
 
 def build_dashboard_keyboard() -> InlineKeyboardMarkup:
@@ -222,21 +226,23 @@ def build_dashboard_keyboard() -> InlineKeyboardMarkup:
     ])
 
 DASHBOARD_SECTIONS = {
-    "dash_stats":    ("📊 Statistics", "See link performance, click counts, and usage trends\\."),
-    "dash_security": ("🛡️ Security",   "Review anti\\-bypass shield status and security settings\\."),
-    "dash_history":  ("🕓 History",    "Track your recent activity and generated links\\."),
-    "dash_logs":     ("📋 Logs",       "Inspect detailed system and request logs\\."),
-    "dash_settings": ("⚙️ Settings",   "Configure your account and bot preferences\\."),
+    "dash_stats":    ("📊 Statistics", "See link performance, click counts, and usage trends."),
+    "dash_security": ("🛡️ Security",   "Review anti-bypass shield status and security settings."),
+    "dash_history":  ("🕓 History",    "Track your recent activity and generated links."),
+    "dash_logs":     ("📋 Logs",       "Inspect detailed system and request logs."),
+    "dash_settings": ("⚙️ Settings",   "Configure your account and bot preferences."),
 }
 
 def build_dashboard_section_text(key: str) -> str:
+    sc = lambda s: escape(smallcaps(s))
     title, desc = DASHBOARD_SECTIONS[key]
+    emoji, label = title.split(" ", 1)
     return "\n".join([
-        f"{title}",
+        f"{emoji} {sc(label)}",
         DIVIDER,
-        desc,
+        sc(desc),
         "",
-        "🚧 *Coming soon\\.*",
+        f"🚧 *{sc('Coming soon.')}*",
     ])
 
 def build_dashboard_section_keyboard() -> InlineKeyboardMarkup:
@@ -254,19 +260,20 @@ def site_display_name(domain: str) -> str:
     return name.capitalize() if name else domain
 
 def build_sites_text(sites: list[dict]) -> str:
+    sc = lambda s: escape(smallcaps(s))
     lines = [
-        "🌐 *Sites Manager*",
+        f"🌐 *{sc('Sites Manager')}*",
         "",
-        "Send a URL to add a new site\\. Your link will be automatically secured with anti\\-bypass protection\\.",
+        sc("Send a URL to add a new site. Your link will be automatically secured with anti-bypass protection."),
         "",
     ]
     if sites:
-        lines += ["📁 *Your sites:*", "Select a site below to view details\\."]
+        lines += [f"📁 *{sc('Your sites:')}*", sc("Select a site below to view details.")]
     else:
-        lines += ["📁 *Your sites:*", "You haven't added any sites yet\\."]
+        lines += [f"📁 *{sc('Your sites:')}*", sc("You haven't added any sites yet.")]
     lines += [
         "",
-        "⚠️ Click on a site name to view details and access developer API\\.",
+        f"⚠️ {sc('Click on a site name to view details and access developer API.')}",
     ]
     return "\n".join(lines)
 
@@ -284,27 +291,28 @@ def clean_domain_display(domain: str) -> str:
     return domain.replace("https://", "").replace("http://", "").rstrip("/")
 
 def build_site_detail_text(site: dict) -> str:
+    sc = lambda s: escape(smallcaps(s))
     name = site_display_name(site["domain"])
     domain_display = clean_domain_display(site["domain"])
     added_on = (site.get("created_at") or "").replace("T", " ")
     links_count = site.get("links_count", 0)
     return "\n".join([
-        "🌐 *Site Details*",
+        f"🌐 *{sc('Site Details')}*",
         DIVIDER,
-        "📄 Information about your selected site:",
+        f"📄 {sc('Information about your selected site:')}",
         "",
-        "🏷️ *Name*",
+        f"🏷️ *{sc('Name')}*",
         escape(name),
-        "🔗 *URL*",
+        f"🔗 *{sc('URL')}*",
         escape(domain_display),
-        "🔑 *API Key*",
+        f"🔑 *{sc('API Key')}*",
         escape(site["api_key"]),
-        "📅 *Added On*",
+        f"📅 *{sc('Added On')}*",
         escape(added_on),
-        "📊 *Total Links Created*",
+        f"📊 *{sc('Total Links Created')}*",
         str(links_count),
         "",
-        "🟢 *Status: Active \\& Protected*",
+        f"🟢 *{sc('Status: Active & Protected')}*",
     ])
 
 def build_site_detail_keyboard(site_id: int) -> InlineKeyboardMarkup:
@@ -317,16 +325,17 @@ def build_site_detail_keyboard(site_id: int) -> InlineKeyboardMarkup:
     ])
 
 def build_site_devapi_text(site: dict) -> str:
+    sc = lambda s: escape(smallcaps(s))
     domain_display = clean_domain_display(site["domain"])
     return "\n".join([
-        "🤖 *Developer API*",
+        f"🤖 *{sc('Developer API')}*",
         DIVIDER,
-        f"🌐 Site → *{escape(site_display_name(site['domain']))}*",
+        f"🌐 {sc('Site')} → *{escape(site_display_name(site['domain']))}*",
         "",
-        "Use this endpoint to shorten a link with your key:",
+        sc("Use this endpoint to shorten a link with your key:"),
         f"`https://{escape(domain_display)}/api?api={escape(site['api_key'])}&url=YOUR_URL&format=json`",
         "",
-        "This site is used automatically to shorten your links before Cloudflare protection\\.",
+        sc("This site is used automatically to shorten your links before Cloudflare protection."),
     ])
 
 def build_site_devapi_keyboard(site_id: int) -> InlineKeyboardMarkup:
@@ -400,13 +409,15 @@ async def send_force_sub_message(update: Update):
         [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{channel.lstrip('@')}")],
         [InlineKeyboardButton("✅ I've Joined", callback_data="check_sub")],
     ])
+    sc = lambda s: escape(smallcaps(s))
+    joined = sc("I've Joined")
     text = "\n".join([
-        "🔒 *One Quick Step*",
+        f"🔒 *{sc('One Quick Step')}*",
         DIVIDER,
-        "Join our channel to unlock the bot\\.",
+        sc("Join our channel to unlock the bot."),
         f"👉 {escape(channel)}",
         "",
-        "Tap *✅ I've Joined* once you're in\\.",
+        f"{sc('Tap')} *✅ {joined}* {sc('once you are in.')}",
     ])
     await update.effective_message.reply_text(
         text,
