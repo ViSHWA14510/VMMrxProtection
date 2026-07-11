@@ -1,53 +1,35 @@
 """
-Link generator — wraps destination URLs with Cloudflare Worker protection.
-Optionally shortens the URL first using a user-added shortener "site"
-(domain + API key) before protecting it. The Vercel backend has been removed.
+Link generator — wraps destination URLs with protection using your
+VMMrxProtection Vercel deployment (api/direct.js). Optionally shortens
+the URL first using a user-added shortener "site" (domain + API key)
+before protecting it.
 """
 
 import os
 import aiohttp
 
-# ── Cloudflare Worker ──────────────────────────────────────────────────────────
-WORKER_URL    = os.environ.get("WORKER_URL", "").rstrip("/")
-ADMIN_SECRET  = os.environ.get("ADMIN_SECRET", "")
+# ── Vercel deployment (VMMrxProtection-main) ───────────────────────────────────
+SITE_URL  = os.environ.get("SITE_URL", "").rstrip("/")
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
 
 TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 
-async def _worker_create_link(destination: str) -> dict:
-    """POST to Worker admin API → returns { id, protected_url }"""
-    if not WORKER_URL or not ADMIN_SECRET:
-        raise ValueError("WORKER_URL or ADMIN_SECRET is not set.")
+async def _vercel_protect(destination: str) -> dict:
+    """POST to /api/direct -> returns { success, protected_url, short_protected_url, original_url }"""
+    if not SITE_URL or not ADMIN_KEY:
+        raise ValueError("SITE_URL or ADMIN_KEY is not set.")
 
     async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
         async with session.post(
-            f"{WORKER_URL}/admin/api/links",
-            json={"destination": destination},
-            headers={"Content-Type": "application/json", "X-Admin-Secret": ADMIN_SECRET},
+            f"{SITE_URL}/api/direct",
+            json={"url": destination},
+            headers={"Content-Type": "application/json", "x-admin-key": ADMIN_KEY},
         ) as resp:
             data = await resp.json(content_type=None)
-            if not resp.ok or data.get("status") != "ok":
-                raise ValueError(data.get("message", f"Worker API error {resp.status}"))
-            link_id = data["id"]
-            return {
-                "id": link_id,
-                "protected_url": f"{WORKER_URL}/{link_id}",
-            }
-
-
-async def _worker_delete_link(link_id: str):
-    """DELETE a protected link from the Worker (deactivates/removes it)."""
-    if not WORKER_URL or not ADMIN_SECRET:
-        raise ValueError("WORKER_URL or ADMIN_SECRET is not set.")
-
-    async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-        async with session.delete(
-            f"{WORKER_URL}/admin/api/links/{link_id}",
-            headers={"X-Admin-Secret": ADMIN_SECRET},
-        ) as resp:
-            if resp.status not in (200, 204):
-                data = await resp.json(content_type=None)
-                raise ValueError(data.get("message", f"Worker API error {resp.status}"))
+            if not resp.ok or not data.get("success"):
+                raise ValueError(data.get("error", f"API error {resp.status}"))
+            return data
 
 
 async def shorten_with_site(url: str, domain: str, api_key: str) -> str:
@@ -79,11 +61,11 @@ async def shorten_with_site(url: str, domain: str, api_key: str) -> str:
 
 async def generate_direct_link(url: str) -> dict:
     """Protect a link directly (no shortener)."""
-    worker = await _worker_create_link(url)
+    data = await _vercel_protect(url)
     return {
-        "id":                   worker["id"],
-        "protected_url":       worker["protected_url"],
-        "short_protected_url": worker["protected_url"],
+        "id":                   None,  # no delete support on this backend
+        "protected_url":       data["protected_url"],
+        "short_protected_url": data.get("short_protected_url") or data["protected_url"],
         "original_url":        url,
     }
 
@@ -96,17 +78,21 @@ async def generate_protected_link(url: str, site: dict | None = None) -> dict:
     """
     if site and site.get("domain") and site.get("api_key"):
         short_url = await shorten_with_site(url, site["domain"], site["api_key"])
-        worker = await _worker_create_link(short_url)
+        data = await _vercel_protect(short_url)
         return {
-            "id":                   worker["id"],
+            "id":                   None,  # no delete support on this backend
             "short_url":           short_url,
-            "protected_url":       worker["protected_url"],
-            "short_protected_url": worker["protected_url"],
+            "protected_url":       data["protected_url"],
+            "short_protected_url": data.get("short_protected_url") or data["protected_url"],
             "original_url":        url,
         }
     return await generate_direct_link(url)
 
 
 async def delete_protected_link(link_id: str):
-    """Remove a previously protected link from the Worker."""
-    await _worker_delete_link(link_id)
+    """Not supported: the Vercel backend (api/direct.js + Upstash Redis)
+    has no delete endpoint -- protected links are permanent once created."""
+    raise NotImplementedError(
+        "Removing links isn't supported by this backend yet -- "
+        "there's no delete endpoint in the Vercel project."
+    )
