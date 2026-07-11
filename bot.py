@@ -794,7 +794,7 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(user.id):
         await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
-    await update.message.reply_text(bold_all(sc("Restarting bot...")), parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(bold_all(sc("Restarting bot...⏳")), parse_mode=ParseMode.MARKDOWN_V2)
     log.info(f"Restart triggered by admin {user.id}")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
@@ -808,7 +808,7 @@ async def notify_admins_on_startup(app: Application):
         try:
             await app.bot.send_message(
                 admin_id,
-                bold_all(sc("Bot restarted successfully!")),
+                bold_all(sc("Bot restarted successfully!!! ✅")),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as e:
