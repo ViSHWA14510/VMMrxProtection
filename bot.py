@@ -97,6 +97,20 @@ def smallcaps(text: str) -> str:
     punctuation, and spacing are left untouched)."""
     return "".join(_SMALLCAPS_MAP.get(ch.lower(), ch) for ch in text)
 
+def bold_all(text: str) -> str:
+    """Make every non-empty line of a MarkdownV2 message bold.
+    Strips any existing single '*' bold markers first (MarkdownV2 can't
+    nest bold-in-bold), then wraps each line in a single *...* pair.
+    Leaves blank lines untouched so spacing is preserved."""
+    out_lines = []
+    for line in text.split("\n"):
+        if line.strip() == "":
+            out_lines.append(line)
+            continue
+        stripped = line.replace("*", "")
+        out_lines.append(f"*{stripped}*")
+    return "\n".join(out_lines)
+
 # ── UI constants ──────────────────────────────────────────────────────────────
 DIVIDER = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
@@ -123,17 +137,6 @@ def build_welcome_text(user, context: ContextTypes.DEFAULT_TYPE) -> str:
         f"📦 {sc('Bulk link processing')}",
     ]
 
-    if is_admin(user.id):
-        lines += [
-            "",
-            f"👑 *{sc('Admin Panel:')}*",
-            f"  `/pending`        {sc('View users awaiting approval')}",
-            f"  `/approve id`  {sc('Approve a user')}",
-            "  `/revoke id`    " + sc("Revoke a user's access"),
-            f"  `/users`          {sc('List all approved users')}",
-            f"  `/restart`        {sc('Restart the bot')}",
-        ]
-
     lines += [
         "",
         f"{sc('Maintained by:')} {maintainer}",
@@ -145,7 +148,7 @@ def build_welcome_text(user, context: ContextTypes.DEFAULT_TYPE) -> str:
     else:
         lines.append(f"⏳ *{sc('Awaiting admin approval.')}* " + sc("You'll be notified the moment you're approved."))
 
-    return "\n".join(lines)
+    return bold_all("\n".join(lines))
 
 def build_home_keyboard(user) -> InlineKeyboardMarkup:
     rows = [
@@ -166,7 +169,7 @@ def build_home_keyboard(user) -> InlineKeyboardMarkup:
 
 def build_help_text() -> str:
     sc = lambda s: escape(smallcaps(s))
-    return "\n".join([
+    return bold_all("\n".join([
         f"📖 *{sc('Help & Guide')}*",
         DIVIDER,
         f"*🛡️ {sc('Direct Protect')}*",
@@ -180,21 +183,21 @@ def build_help_text() -> str:
         f"*📌 {sc('Quick Start')}*",
         f"1️⃣ {sc('Paste one or more links')}",
         f"2️⃣ {sc('Get your protected link(s) instantly')} ⚡",
-    ])
+    ]))
 
 def build_about_text() -> str:
     sc = lambda s: escape(smallcaps(s))
-    return "\n".join([
+    return bold_all("\n".join([
         f"👤 *{sc('About')}*",
         DIVIDER,
         f"🤖 {sc('Bot')}        →  *{escape(BOT_NAME)}*",
         f"👑 {sc('Maintainer')} →  *{escape(MAINTAINER_NAME)}*",
         f"🛡️ {sc('Purpose')}    →  {sc('Cloudflare-backed link protection')}",
-    ])
+    ]))
 
 def build_dashboard_text() -> str:
     sc = lambda s: escape(smallcaps(s))
-    return "\n".join([
+    return bold_all("\n".join([
         f"🖥️ *{sc('Dashboard')}*",
         f"🔧 {sc('Manage your links and system')}",
         "",
@@ -206,7 +209,7 @@ def build_dashboard_text() -> str:
         f"🤖 {sc('Access developer API')}",
         "",
         sc("Everything you need in one place."),
-    ])
+    ]))
 
 def build_dashboard_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
@@ -237,13 +240,13 @@ def build_dashboard_section_text(key: str) -> str:
     sc = lambda s: escape(smallcaps(s))
     title, desc = DASHBOARD_SECTIONS[key]
     emoji, label = title.split(" ", 1)
-    return "\n".join([
+    return bold_all("\n".join([
         f"{emoji} {sc(label)}",
         DIVIDER,
         sc(desc),
         "",
         f"🚧 *{sc('Coming soon.')}*",
-    ])
+    ]))
 
 def build_dashboard_section_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
@@ -275,7 +278,7 @@ def build_sites_text(sites: list[dict]) -> str:
         "",
         f"⚠️ {sc('Click on a site name to view details and access developer API.')}",
     ]
-    return "\n".join(lines)
+    return bold_all("\n".join(lines))
 
 def build_sites_keyboard(sites: list[dict]) -> InlineKeyboardMarkup:
     rows = []
@@ -296,7 +299,7 @@ def build_site_detail_text(site: dict) -> str:
     domain_display = clean_domain_display(site["domain"])
     added_on = (site.get("created_at") or "").replace("T", " ")
     links_count = site.get("links_count", 0)
-    return "\n".join([
+    return bold_all("\n".join([
         f"🌐 *{sc('Site Details')}*",
         DIVIDER,
         f"📄 {sc('Information about your selected site:')}",
@@ -313,7 +316,7 @@ def build_site_detail_text(site: dict) -> str:
         str(links_count),
         "",
         f"🟢 *{sc('Status: Active & Protected')}*",
-    ])
+    ]))
 
 def build_site_detail_keyboard(site_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
@@ -327,7 +330,7 @@ def build_site_detail_keyboard(site_id: int) -> InlineKeyboardMarkup:
 def build_site_devapi_text(site: dict) -> str:
     sc = lambda s: escape(smallcaps(s))
     domain_display = clean_domain_display(site["domain"])
-    return "\n".join([
+    return bold_all("\n".join([
         f"🤖 *{sc('Developer API')}*",
         DIVIDER,
         f"🌐 {sc('Site')} → *{escape(site_display_name(site['domain']))}*",
@@ -336,7 +339,7 @@ def build_site_devapi_text(site: dict) -> str:
         f"`https://{escape(domain_display)}/api?api={escape(site['api_key'])}&url=YOUR_URL&format=json`",
         "",
         sc("This site is used automatically to shorten your links before Cloudflare protection."),
-    ])
+    ]))
 
 def build_site_devapi_keyboard(site_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
@@ -366,7 +369,7 @@ def build_link_card_text(user, site_name: str, original_url: str, secure_url: st
         f"💡 _{sc('This link is fully protected against bypassers.')}_" if not removed
             else f"💡 _{sc('This link is no longer active.')}_",
     ]
-    return "\n".join(lines)
+    return bold_all("\n".join(lines))
 
 def build_link_card_keyboard(secure_url: str, link_id: str | None = None) -> InlineKeyboardMarkup:
     # NOTE: the Vercel backend (api/direct.js + Upstash Redis) has no delete
@@ -411,14 +414,14 @@ async def send_force_sub_message(update: Update):
     ])
     sc = lambda s: escape(smallcaps(s))
     joined = sc("I've Joined")
-    text = "\n".join([
+    text = bold_all("\n".join([
         f"🔒 *{sc('One Quick Step')}*",
         DIVIDER,
         sc("Join our channel to unlock the bot."),
         f"👉 {escape(channel)}",
         "",
         f"{sc('Tap')} *✅ {joined}* {sc('once you are in.')}",
-    ])
+    ]))
     await update.effective_message.reply_text(
         text,
         parse_mode=ParseMode.MARKDOWN_V2,
@@ -482,11 +485,11 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("pending_site_domain", None)
 
     if not had_pending:
-        await update.message.reply_text("Nothing to cancel\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all("Nothing to cancel\\."), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
     sites = get_sites(user.id)
-    await update.message.reply_text("❌ *Cancelled\\.*", parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(bold_all("❌ Cancelled\\."), parse_mode=ParseMode.MARKDOWN_V2)
     await update.message.reply_text(
         build_sites_text(sites),
         parse_mode=ParseMode.MARKDOWN_V2,
@@ -505,12 +508,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_approved(user.id):
         await update.message.reply_text(
-            "\n".join([
+            bold_all("\n".join([
                 "⏳ *Pending Approval*",
                 DIVIDER,
                 "Your account is awaiting admin approval\\.",
                 "You'll be notified the moment you're approved\\.",
-            ]),
+            ])),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         add_pending_user(user.id, user.username or "", user.full_name or "")
@@ -530,12 +533,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             host = candidate.split("://", 1)[-1]
             if " " in value or "." not in host:
                 await update.message.reply_text(
-                    "\n".join([
+                    bold_all("\n".join([
                         "❌ *That doesn't look like a valid domain\\.*",
                         "Send it again \\(e\\.g\\., `arolinks.com`\\)\\.",
                         "",
                         "_/cancel \\- to cancel this process\\._",
-                    ]),
+                    ])),
                     parse_mode=ParseMode.MARKDOWN_V2,
                 )
                 return
@@ -543,11 +546,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["awaiting_site"] = "api"
             site_name = site_display_name(candidate)
             await update.message.reply_text(
-                "\n".join([
+                bold_all("\n".join([
                     f"🔑 *Send me API key for:* {escape(site_name)}",
                     "",
                     "_/cancel \\- to cancel this process\\._",
-                ]),
+                ])),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             return
@@ -556,11 +559,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             domain = context.user_data.pop("pending_site_domain", "")
             context.user_data.pop("awaiting_site", None)
             if not domain:
-                await update.message.reply_text("❌ Something went wrong — please tap *➕ Add Shortener* again\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text(bold_all("❌ Something went wrong — please tap ➕ Add Shortener again\\."), parse_mode=ParseMode.MARKDOWN_V2)
                 return
             add_site(user.id, domain, value)
             sites = get_sites(user.id)
-            await update.message.reply_text("✅ *Shortener site added\\!*", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text(bold_all("✅ Shortener site added\\!"), parse_mode=ParseMode.MARKDOWN_V2)
             await update.message.reply_text(
                 build_sites_text(sites),
                 parse_mode=ParseMode.MARKDOWN_V2,
@@ -573,13 +576,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not urls:
         await update.message.reply_text(
-            "❌ *No valid URLs found\\.* Please send links starting with `http://` or `https://`\\.",
+            bold_all("❌ No valid URLs found\\. Please send links starting with `http://` or `https://`\\."),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
 
     processing_msg = await update.message.reply_text(
-        f"⚙️ Processing *{len(urls)}* link{'s' if len(urls) > 1 else ''}\\.\\.\\.",
+        bold_all(f"⚙️ Processing {len(urls)} link{'s' if len(urls) > 1 else ''}\\.\\.\\."),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -596,10 +599,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             log.warning(f"Error processing {url}: {e}")
             await processing_msg.delete()
             await update.message.reply_text(
-                "\n".join([
+                bold_all("\n".join([
                     f"❌ *Failed:* `{escape(url)}`",
                     f"⚠️ {escape(str(e))}",
-                ]),
+                ])),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             return
@@ -656,10 +659,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Report any errors separately
     for e in errors:
         await update.message.reply_text(
-            "\n".join([
+            bold_all("\n".join([
                 f"❌ *Failed:* `{escape(e['url'])}`",
                 f"⚠️ {escape(e['error'])}",
-            ]),
+            ])),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
     return
@@ -671,7 +674,7 @@ async def notify_admins_new_user(context: ContextTypes.DEFAULT_TYPE, user):
     from db import get_admin_ids
     admin_ids = get_admin_ids()
     username = f"@{user.username}" if user.username else "No username"
-    text = "\n".join([
+    text = bold_all("\n".join([
         "🔔 *New Access Request*",
         DIVIDER,
         f"👤 Name       →  {escape(user.full_name or 'Unknown')}",
@@ -679,7 +682,7 @@ async def notify_admins_new_user(context: ContextTypes.DEFAULT_TYPE, user):
         f"🆔 User ID   →  `{user.id}`",
         "",
         f"Use `/approve {user.id}` to grant access\\.",
-    ])
+    ]))
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Approve", callback_data=f"approve:{user.id}"),
@@ -700,17 +703,18 @@ async def notify_admins_new_user(context: ContextTypes.DEFAULT_TYPE, user):
 
 async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    sc = lambda s: escape(smallcaps(s))
     if not is_admin(user.id):
-        await update.message.reply_text("🚫 Admin only command.")
+        await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     pending = get_pending_users()
     if not pending:
-        await update.message.reply_text("✅ No pending users\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(sc("No pending users.")), parse_mode=ParseMode.MARKDOWN_V2)
         return
-    lines = [f"⏳ *Pending Users \\({len(pending)}\\):*\n"]
+    lines = [f"⏳ {sc('Pending Users')} \\({len(pending)}\\):\n"]
     buttons = []
     for u in pending:
-        uname = f"@{u['username']}" if u.get("username") else "No username"
+        uname = f"@{u['username']}" if u.get("username") else sc("No username")
         lines.append(f"👤 {escape(u.get('full_name','Unknown'))} \\| {escape(uname)} \\| `{u['user_id']}`")
         buttons.append([
             InlineKeyboardButton(f"✅ Approve {u['user_id']}", callback_data=f"approve:{u['user_id']}"),
@@ -718,37 +722,40 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     keyboard = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(
-        "\n".join(lines),
+        bold_all("\n".join(lines)),
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=keyboard,
     )
 
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    sc = lambda s: escape(smallcaps(s))
     if not is_admin(user.id):
-        await update.message.reply_text("🚫 Admin only command.")
+        await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     if not context.args:
-        await update.message.reply_text("Usage: `/approve <user_id>`", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(f"{sc('Usage:')} `/approve <user_id>`"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     try:
         target_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("❌ Invalid user ID\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(sc("Invalid user ID.")), parse_mode=ParseMode.MARKDOWN_V2)
         return
     approve_user(target_id)
     info = get_user_info(target_id)
     name = escape(info.get("full_name", "Unknown")) if info else str(target_id)
     await update.message.reply_text(
-        f"✅ User {name} \\(`{target_id}`\\) has been *approved*\\.",
+        bold_all(f"✅ {sc('User')} {name} \\(`{target_id}`\\) {sc('has been approved.')}"),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
     try:
         await context.bot.send_message(
             target_id,
-            "🎉 *Your access has been approved\\!*\n\n"
-            "You can now generate protected links\\.\n"
-            "Just send me a link to get started\\.",
+            bold_all(
+                sc("Your access has been approved!") + "\n\n"
+                + sc("You can now generate protected links.") + "\n"
+                + sc("Just send me a link to get started.")
+            ),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
     except Exception as e:
@@ -756,20 +763,21 @@ async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    sc = lambda s: escape(smallcaps(s))
     if not is_admin(user.id):
-        await update.message.reply_text("🚫 Admin only command.")
+        await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     if not context.args:
-        await update.message.reply_text("Usage: `/revoke <user_id>`", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(f"{sc('Usage:')} `/revoke <user_id>`"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     try:
         target_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("❌ Invalid user ID\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(sc("Invalid user ID.")), parse_mode=ParseMode.MARKDOWN_V2)
         return
     revoke_user(target_id)
     await update.message.reply_text(
-        f"🚫 User `{target_id}` access has been *revoked*\\.",
+        bold_all(f"🚫 {sc('User')} `{target_id}` {sc('access has been revoked.')}"),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
     try:
@@ -782,10 +790,11 @@ async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    sc = lambda s: escape(smallcaps(s))
     if not is_admin(user.id):
-        await update.message.reply_text("🚫 Admin only command.")
+        await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
-    await update.message.reply_text("🔄 *Restarting bot\\.\\.\\.*", parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(bold_all(sc("Restarting bot...")), parse_mode=ParseMode.MARKDOWN_V2)
     log.info(f"Restart triggered by admin {user.id}")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
@@ -793,12 +802,13 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def notify_admins_on_startup(app: Application):
     from db import get_admin_ids
+    sc = lambda s: escape(smallcaps(s))
     admin_ids = get_admin_ids()
     for admin_id in admin_ids:
         try:
             await app.bot.send_message(
                 admin_id,
-                "✅ *Bot restarted successfully\\!*",
+                bold_all(sc("Bot restarted successfully!")),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as e:
@@ -806,19 +816,20 @@ async def notify_admins_on_startup(app: Application):
 
 async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    sc = lambda s: escape(smallcaps(s))
     if not is_admin(user.id):
-        await update.message.reply_text("🚫 Admin only command.")
+        await update.message.reply_text(bold_all(f"🚫 {sc('Admin only command.')}"), parse_mode=ParseMode.MARKDOWN_V2)
         return
     users = get_all_users()
     approved = [u for u in users if u.get("approved")]
     if not approved:
-        await update.message.reply_text("No approved users yet\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(bold_all(sc("No approved users yet.")), parse_mode=ParseMode.MARKDOWN_V2)
         return
-    lines = [f"👥 *Approved Users \\({len(approved)}\\):*\n"]
+    lines = [f"👥 {sc('Approved Users')} \\({len(approved)}\\):\n"]
     for u in approved:
         uname = f"@{u['username']}" if u.get("username") else "—"
         lines.append(f"• {escape(u.get('full_name','?'))} \\| {escape(uname)} \\| `{u['user_id']}`")
-    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+    await update.message.reply_text(bold_all("\n".join(lines)), parse_mode=ParseMode.MARKDOWN_V2)
 
 # ── Inline button callbacks ───────────────────────────────────────────────────
 
@@ -831,7 +842,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "check_sub":
         if await is_subscribed(context.bot, user.id):
             await query.edit_message_text(
-                "✅ *Thanks for joining\\! You can now use the bot\\.*\n\nSend /start to begin\\.",
+                bold_all("✅ Thanks for joining\\! You can now use the bot\\.\n\nSend /start to begin\\."),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         else:
@@ -876,11 +887,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "site_add":
         context.user_data["awaiting_site"] = "domain"
         context.user_data.pop("pending_site_domain", None)
-        prompt = "\n".join([
+        prompt = bold_all("\n".join([
             "📤 *Send me a shortlink URL* \\(e\\.g\\., arolinks\\.com, avbypassbot\\.koyeb\\.app\\)\\.\\.\\.",
             "",
             "_/cancel \\- to cancel this process\\._",
-        ])
+        ]))
         await _edit_screen(query, prompt, None)
         return
 
@@ -924,19 +935,22 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = int(target_str)
     info = get_user_info(target_id)
     name = info.get("full_name", str(target_id)) if info else str(target_id)
+    sc = lambda s: escape(smallcaps(s))
 
     if action == "approve":
         approve_user(target_id)
         await query.edit_message_text(
-            f"✅ *Approved:* {escape(name)} \\(`{target_id}`\\)",
+            bold_all(f"✅ {sc('Approved:')} {escape(name)} \\(`{target_id}`\\)"),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         try:
             await context.bot.send_message(
                 target_id,
-                "🎉 *Your access has been approved\\!*\n\n"
-                "You can now generate protected links\\.\n"
-                "Just send me a link to get started\\.",
+                bold_all(
+                    sc("Your access has been approved!") + "\n\n"
+                    + sc("You can now generate protected links.") + "\n"
+                    + sc("Just send me a link to get started.")
+                ),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception:
@@ -944,7 +958,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "deny":
         revoke_user(target_id)
         await query.edit_message_text(
-            f"❌ *Denied:* {escape(name)} \\(`{target_id}`\\)",
+            bold_all(f"❌ {sc('Denied:')} {escape(name)} \\(`{target_id}`\\)"),
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         try:
