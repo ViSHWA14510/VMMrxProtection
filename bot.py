@@ -34,7 +34,7 @@ from db import (
     delete_site,
     increment_site_links,
 )
-from generator import generate_direct_link, generate_protected_link, delete_protected_link
+from generator import generate_direct_link, generate_protected_link
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -343,10 +343,11 @@ def build_link_card_text(user, site_name: str, original_url: str, secure_url: st
     ]
     return "\n".join(lines)
 
-def build_link_card_keyboard(secure_url: str, link_id: str) -> InlineKeyboardMarkup:
+def build_link_card_keyboard(secure_url: str, link_id: str | None = None) -> InlineKeyboardMarkup:
+    # NOTE: the Vercel backend (api/direct.js + Upstash Redis) has no delete
+    # endpoint, so protected links are permanent — no "Remove Link" button.
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("👀 View Link", url=secure_url)],
-        [InlineKeyboardButton("🗑️ Remove Link", callback_data=f"link_remove:{link_id}")],
     ])
 
 async def _edit_screen(query, text: str, keyboard: InlineKeyboardMarkup):
@@ -858,31 +859,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _edit_screen(query, build_sites_text(sites), build_sites_keyboard(sites))
         return
 
-    # ── Remove Link button on the "Link Protected Successfully" card ──
-    if query.data.startswith("link_remove:"):
-        link_id = query.data.split(":", 1)[1]
-        try:
-            await delete_protected_link(link_id)
-        except Exception as e:
-            log.warning(f"Could not delete link {link_id}: {e}")
-            await query.answer("⚠️ Could not remove the link. Try again later.", show_alert=True)
-            return
-        await query.answer("🗑️ Link removed.")
-        new_caption = "\n".join([
-            "🗑️ *Link Removed*",
-            "",
-            "This protected link has been deactivated and is no longer accessible\\.",
-        ])
-        try:
-            await query.edit_message_caption(
-                caption=new_caption,
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=None,
-            )
-        except Exception:
-            pass
-        return
-
     # ── Home button — go back to start message ──
     if query.data == "go_home":
         await _edit_screen(query, build_welcome_text(user, context), build_home_keyboard(user))
@@ -947,8 +923,7 @@ def main():
         handle_callback,
         pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^show_about$|^show_dashboard$|^go_home$"
                 r"|^dash_(sites|stats|security|history|logs|settings)$"
-                r"|^site_add$|^site_view:\d+$|^site_delete:\d+$|^site_devapi:\d+$"
-                r"|^link_remove:[\w-]+$",
+                r"|^site_add$|^site_view:\d+$|^site_delete:\d+$|^site_devapi:\d+$",
     ))
 
     # Messages
