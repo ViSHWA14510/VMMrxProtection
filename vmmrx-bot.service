@@ -1,0 +1,25 @@
+[Unit]
+Description=VMMrx Protection Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change this to the user you want the bot to run as (not root, ideally)
+User=vmmrxbot
+Group=vmmrxbot
+
+# Change this to wherever you deploy the bot on the VPS
+WorkingDirectory=/opt/vmmrx-bot
+EnvironmentFile=/opt/vmmrx-bot/.env
+ExecStart=/opt/vmmrx-bot/venv/bin/python /opt/vmmrx-bot/bot.py
+
+Restart=on-failure
+RestartSec=5
+
+# Basic hardening (safe to remove if it causes issues)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
