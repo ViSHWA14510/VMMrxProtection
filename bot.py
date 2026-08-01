@@ -18,6 +18,7 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ParseMode
+from telegram.helpers import escape_markdown
 from db import (
     is_approved,
     is_admin,
@@ -378,6 +379,26 @@ def build_link_card_keyboard(secure_url: str, link_id: str | None = None) -> Inl
         [InlineKeyboardButton("👀 View Link", url=secure_url)],
     ])
 
+def build_bulk_formatted_text(message, url_map: dict[str, str]) -> str:
+    """Rebuild the user's original message (text or photo caption) as
+    MarkdownV2, preserving whatever formatting (bold/italic/underline/etc.)
+    the user used, but with each original URL swapped for its protected
+    link. `url_map` maps original_url -> secure_url (only successfully
+    protected ones are replaced; failed ones are left as-is)."""
+    # Telegram/PTB already knows how to turn the message's entities back
+    # into MarkdownV2 source — this is what preserves the user's styling.
+    if message.photo:
+        md_text = message.caption_markdown_v2 or ""
+    else:
+        md_text = message.text_markdown_v2 or ""
+
+    for original_url, secure_url in url_map.items():
+        old = escape_markdown(original_url, version=2)
+        new = escape_markdown(secure_url, version=2)
+        md_text = md_text.replace(old, new)
+
+    return md_text
+
 async def _edit_screen(query, text: str, keyboard: InlineKeyboardMarkup):
     """Edit the caption if the message is a photo (banner), otherwise edit the text."""
     if query.message.photo:
@@ -571,7 +592,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-    text = update.message.text or ""
+    text = update.message.text or update.message.caption or ""
     urls = extract_urls(text)
 
     if not urls:
@@ -624,11 +645,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(caption, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
         return
 
-    # ── Bulk: generate a protected link + individual card for every URL ────────
-    # (same "Link Protected Successfully" card as single-link mode, one per link)
+    # ── Bulk (2+ links): reply in the SAME format the user sent ────────────────
+    # Every URL found in the user's message is protected, then swapped back
+    # into their original text/caption — preserving their exact styling
+    # (bold, italic, underline, etc.) and the original photo, if any.
 
     errors = []
-    site_name = site_display_name(site["domain"]) if site else "Direct Protect"
+    url_map: dict[str, str] = {}
 
     for i, url in enumerate(urls, 1):
         try:
@@ -641,22 +664,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
 
         secure_url = data.get("short_protected_url") or data["protected_url"]
-        caption = build_link_card_text(user, site_name, url, secure_url)
-        keyboard = build_link_card_keyboard(secure_url, data["id"])
-        try:
-            await update.message.reply_photo(
-                photo=pick_card_image(),
-                caption=caption,
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=keyboard,
-            )
-        except Exception as e:
-            log.warning(f"Could not send link card image: {e}")
-            await update.message.reply_text(caption, parse_mode=ParseMode.MARKDOWN_V2, reply_markup=keyboard)
+        url_map[url] = secure_url
 
     await processing_msg.delete()
 
-    # Report any errors separately
+    formatted_text = build_bulk_formatted_text(update.message, url_map)
+
+    try:
+        if update.message.photo:
+            await update.message.reply_photo(
+                photo=update.message.photo[-1].file_id,
+                caption=formatted_text,
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        else:
+            await update.message.reply_text(
+                formatted_text,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                disable_web_page_preview=True,
+            )
+    except Exception as e:
+        log.warning(f"Could not send bulk formatted reply: {e}")
+        # Fallback: plain text, no MarkdownV2 (in case a stray char broke parsing)
+        await update.message.reply_text(formatted_text)
+
+    # Report any failures separately
     for e in errors:
         await update.message.reply_text(
             bold_all("\n".join([
@@ -992,8 +1024,11 @@ def main():
                 r"|^site_add$|^site_view:\d+$|^site_delete:\d+$|^site_devapi:\d+$",
     ))
 
-    # Messages
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Messages (plain text, or a photo sent with a link-containing caption)
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.CAPTION) & ~filters.COMMAND,
+        handle_message,
+    ))
 
     log.info("VMMrx Bot is starting...")
     app.run_polling(drop_pending_updates=True)
