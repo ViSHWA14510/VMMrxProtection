@@ -364,7 +364,7 @@ def build_link_card_text(user, site_name: str, original_url: str, secure_url: st
         escape(_truncate_url(original_url)),
         "",
         f"🛡️ *{sc('Secure Link:')}*",
-        escape(secure_url) if not removed else f"~{sc('this link has been removed')}~",
+        f"`{escape(secure_url)}`" if not removed else f"~{sc('this link has been removed')}~",
         "",
         f"💡 _{sc('This link is fully protected against bypassers.')}_" if not removed
             else f"💡 _{sc('This link is no longer active.')}_",
