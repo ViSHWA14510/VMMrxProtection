@@ -635,13 +635,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not domain:
                 await update.message.reply_text(bold_all("❌ Something went wrong — please tap ➕ Add Shortener again\\."), parse_mode=ParseMode.MARKDOWN_V2)
                 return
-            add_site(user.id, domain, value)
+            new_site_id = add_site(user.id, domain, value)
             sites = get_sites(user.id)
-            await update.message.reply_text(bold_all("✅ Shortener site added\\!"), parse_mode=ParseMode.MARKDOWN_V2)
+            new_site = get_site(new_site_id, user.id) if new_site_id else None
+            new_site_name = site_display_name(new_site["domain"]) if new_site else site_display_name(domain)
+            confirm_text = bold_all("\n".join([
+                "✅ *Shortener site added\\!*",
+                "",
+                f"🔗 {escape(new_site_name)}",
+                "",
+                "Tap ⚡ Activate to start using this shortener, or keep using 🛡️ Direct Protect\\.",
+            ]))
+            rows = []
+            if new_site:
+                rows.append([InlineKeyboardButton(f"⚡ Activate {new_site_name}", callback_data=f"site_use:{new_site['id']}")])
+            rows.append([InlineKeyboardButton("🛡️ Direct Protect (No Shortener)", callback_data="site_use_direct")])
             await update.message.reply_text(
-                build_sites_text(sites, user.id),
+                confirm_text,
                 parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=build_sites_keyboard(sites, user.id),
+                reply_markup=InlineKeyboardMarkup(rows),
             )
             return
 
