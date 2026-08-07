@@ -35,6 +35,10 @@ from db import (
     get_default_site,
     delete_site,
     increment_site_links,
+    set_user_mode,
+    get_user_mode,
+    set_active_site,
+    get_active_site_id,
 )
 from generator import generate_direct_link, generate_protected_link
 
@@ -256,6 +260,27 @@ def build_dashboard_section_keyboard() -> InlineKeyboardMarkup:
 
 # ── Sites Manager ─────────────────────────────────────────────────────────────
 
+def get_selected_site(user_id: int) -> dict | None:
+    """Resolves what should be used to protect this user's next link:
+    - None            -> direct protect (no shortener), either by explicit
+                          choice or because the user has no sites at all.
+    - dict            -> the shortener site to shorten through first.
+
+    Honors the user's explicit /mode choice (direct vs shortener) and,
+    within shortener mode, their explicitly selected active site --
+    falling back to their oldest-added site if none was chosen yet.
+    """
+    mode = get_user_mode(user_id)
+    if mode == "direct":
+        return None
+    site_id = get_active_site_id(user_id)
+    if site_id:
+        site = get_site(site_id, user_id)
+        if site:
+            return site
+    return get_default_site(user_id)
+
+
 def site_display_name(domain: str) -> str:
     """Derive a friendly display name from a site's domain, e.g.
     'https://arolinks.com' -> 'Arolinks'."""
@@ -263,7 +288,7 @@ def site_display_name(domain: str) -> str:
     name = name.split(".")[0]
     return name.capitalize() if name else domain
 
-def build_sites_text(sites: list[dict]) -> str:
+def build_sites_text(sites: list[dict], user_id: int | None = None) -> str:
     sc = lambda s: escape(smallcaps(s))
     lines = [
         f"🌐 *{sc('Sites Manager')}*",
@@ -272,20 +297,35 @@ def build_sites_text(sites: list[dict]) -> str:
         "",
     ]
     if sites:
-        lines += [f"📁 *{sc('Your sites:')}*", sc("Select a site below to view details.")]
+        lines += [f"📁 *{sc('Your sites:')}*", sc("Select a site below to view details, or tap ⭐ to switch which one protects your links.")]
     else:
         lines += [f"📁 *{sc('Your sites:')}*", sc("You haven't added any sites yet.")]
+    if user_id is not None:
+        selected = get_selected_site(user_id)
+        mode_label = site_display_name(selected["domain"]) if selected else "Direct Protect (No Shortener)"
+        lines += ["", f"⭐ *{sc('Active mode:')}* {escape(mode_label)}"]
     lines += [
         "",
         f"⚠️ {sc('Click on a site name to view details and access developer API.')}",
     ]
     return bold_all("\n".join(lines))
 
-def build_sites_keyboard(sites: list[dict]) -> InlineKeyboardMarkup:
+def build_sites_keyboard(sites: list[dict], user_id: int | None = None) -> InlineKeyboardMarkup:
+    active_site_id = get_active_site_id(user_id) if user_id is not None else None
+    active_mode = get_user_mode(user_id) if user_id is not None else "shortener"
+    # If no explicit active site was chosen, the oldest site is the implicit default.
+    if active_mode == "shortener" and not active_site_id and sites:
+        active_site_id = sites[0]["id"]
+
     rows = []
     for i, s in enumerate(sites, 1):
-        label = f"🔗 {i}. {site_display_name(s['domain'])}"
+        is_active = active_mode == "shortener" and s["id"] == active_site_id
+        star = "⭐ " if is_active else ""
+        label = f"{star}🔗 {i}. {site_display_name(s['domain'])}"
         rows.append([InlineKeyboardButton(label, callback_data=f"site_view:{s['id']}")])
+
+    direct_star = "⭐ " if active_mode == "direct" else ""
+    rows.append([InlineKeyboardButton(f"{direct_star}🛡️ Direct Protect (No Shortener)", callback_data="site_use_direct")])
     rows.append([InlineKeyboardButton("➕ Add Shortener", callback_data="site_add")])
     rows.append([InlineKeyboardButton("🖥️ Back to Dashboard", callback_data="show_dashboard")])
     return InlineKeyboardMarkup(rows)
@@ -319,14 +359,16 @@ def build_site_detail_text(site: dict) -> str:
         f"🟢 *{sc('Status: Active & Protected')}*",
     ]))
 
-def build_site_detail_keyboard(site_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🤖 Developer API", callback_data=f"site_devapi:{site_id}"),
-            InlineKeyboardButton("🗑️ Delete Site", callback_data=f"site_delete:{site_id}"),
-        ],
-        [InlineKeyboardButton("◀️ Back to Sites", callback_data="dash_sites")],
+def build_site_detail_keyboard(site_id: int, is_active: bool = False) -> InlineKeyboardMarkup:
+    rows = []
+    if not is_active:
+        rows.append([InlineKeyboardButton("⭐ Set as Active Shortener", callback_data=f"site_use:{site_id}")])
+    rows.append([
+        InlineKeyboardButton("🤖 Developer API", callback_data=f"site_devapi:{site_id}"),
+        InlineKeyboardButton("🗑️ Delete Site", callback_data=f"site_delete:{site_id}"),
     ])
+    rows.append([InlineKeyboardButton("◀️ Back to Sites", callback_data="dash_sites")])
+    return InlineKeyboardMarkup(rows)
 
 def build_site_devapi_text(site: dict) -> str:
     sc = lambda s: escape(smallcaps(s))
@@ -499,6 +541,17 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── /cancel ───────────────────────────────────────────────────────────────────
 
+async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Quick access to switch between shortener sites / direct protect."""
+    user = update.effective_user
+    sites = get_sites(user.id)
+    await update.message.reply_text(
+        build_sites_text(sites, user.id),
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=build_sites_keyboard(sites, user.id),
+    )
+
+
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     had_pending = bool(context.user_data.get("awaiting_site"))
@@ -512,9 +565,9 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sites = get_sites(user.id)
     await update.message.reply_text(bold_all("❌ Cancelled\\."), parse_mode=ParseMode.MARKDOWN_V2)
     await update.message.reply_text(
-        build_sites_text(sites),
+        build_sites_text(sites, user.id),
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_sites_keyboard(sites),
+        reply_markup=build_sites_keyboard(sites, user.id),
     )
 
 # ── Message handler (URL processing) ─────────────────────────────────────────
@@ -586,9 +639,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             sites = get_sites(user.id)
             await update.message.reply_text(bold_all("✅ Shortener site added\\!"), parse_mode=ParseMode.MARKDOWN_V2)
             await update.message.reply_text(
-                build_sites_text(sites),
+                build_sites_text(sites, user.id),
                 parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=build_sites_keyboard(sites),
+                reply_markup=build_sites_keyboard(sites, user.id),
             )
             return
 
@@ -607,7 +660,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
-    site = get_default_site(user.id)
+    site = get_selected_site(user.id)
 
     # ── Single link: rich "Link Protected Successfully" card ──────────────────
     if len(urls) == 1:
@@ -913,7 +966,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── Sites Manager ──
     if query.data == "dash_sites":
         sites = get_sites(user.id)
-        await _edit_screen(query, build_sites_text(sites), build_sites_keyboard(sites))
+        await _edit_screen(query, build_sites_text(sites, user.id), build_sites_keyboard(sites, user.id))
         return
 
     if query.data == "site_add":
@@ -933,7 +986,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not site:
             await query.answer("❌ Site not found.", show_alert=True)
             return
-        await _edit_screen(query, build_site_detail_text(site), build_site_detail_keyboard(site_id))
+        selected = get_selected_site(user.id)
+        is_active = bool(selected and selected["id"] == site_id)
+        await _edit_screen(query, build_site_detail_text(site), build_site_detail_keyboard(site_id, is_active))
         return
 
     if query.data.startswith("site_devapi:"):
@@ -950,7 +1005,28 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         delete_site(site_id, user.id)
         await query.answer("🗑️ Site deleted.")
         sites = get_sites(user.id)
-        await _edit_screen(query, build_sites_text(sites), build_sites_keyboard(sites))
+        await _edit_screen(query, build_sites_text(sites, user.id), build_sites_keyboard(sites, user.id))
+        return
+
+    # ── Select which shortener protects the user's links ──
+    if query.data.startswith("site_use:"):
+        site_id = int(query.data.split(":")[1])
+        site = get_site(site_id, user.id)
+        if not site:
+            await query.answer("❌ Site not found.", show_alert=True)
+            return
+        set_active_site(user.id, site_id)
+        await query.answer(f"⭐ Now using {site_display_name(site['domain'])} to shorten your links.")
+        sites = get_sites(user.id)
+        await _edit_screen(query, build_sites_text(sites, user.id), build_sites_keyboard(sites, user.id))
+        return
+
+    # ── Switch to plain protection, no shortener ──
+    if query.data == "site_use_direct":
+        set_user_mode(user.id, "direct")
+        await query.answer("🛡️ Now using Direct Protect — links won't be shortened.")
+        sites = get_sites(user.id)
+        await _edit_screen(query, build_sites_text(sites, user.id), build_sites_keyboard(sites, user.id))
         return
 
     # ── Home button — go back to start message ──
@@ -1010,6 +1086,7 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
+    app.add_handler(CommandHandler("mode", cmd_mode))
     app.add_handler(CommandHandler("pending", cmd_pending))
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("revoke", cmd_revoke))
@@ -1021,7 +1098,8 @@ def main():
         handle_callback,
         pattern=r"^(approve|deny):\d+$|^check_sub$|^show_help$|^show_about$|^show_dashboard$|^go_home$"
                 r"|^dash_(sites|stats|security|history|logs|settings)$"
-                r"|^site_add$|^site_view:\d+$|^site_delete:\d+$|^site_devapi:\d+$",
+                r"|^site_add$|^site_view:\d+$|^site_delete:\d+$|^site_devapi:\d+$"
+                r"|^site_use:\d+$|^site_use_direct$",
     ))
 
     # Messages (plain text, or a photo sent with a link-containing caption)
