@@ -320,12 +320,19 @@ def build_sites_keyboard(sites: list[dict], user_id: int | None = None) -> Inlin
     rows = []
     for i, s in enumerate(sites, 1):
         is_active = active_mode == "shortener" and s["id"] == active_site_id
-        star = "⭐ " if is_active else ""
-        label = f"{star}🔗 {i}. {site_display_name(s['domain'])}"
-        rows.append([InlineKeyboardButton(label, callback_data=f"site_view:{s['id']}")])
+        label = f"🔗 {i}. {site_display_name(s['domain'])}"
+        activate_label = "✅ Activate" if is_active else "Activate"
+        rows.append([
+            InlineKeyboardButton(label, callback_data=f"site_view:{s['id']}"),
+            InlineKeyboardButton(activate_label, callback_data=f"site_use:{s['id']}"),
+        ])
 
-    direct_star = "⭐ " if active_mode == "direct" else ""
-    rows.append([InlineKeyboardButton(f"{direct_star}🛡️ Direct Protect (No Shortener)", callback_data="site_use_direct")])
+    direct_is_active = active_mode == "direct"
+    direct_activate_label = "✅ Activate" if direct_is_active else "Activate"
+    rows.append([
+        InlineKeyboardButton("🛡️ Direct Protect (No Shortener)", callback_data="site_info_direct"),
+        InlineKeyboardButton(direct_activate_label, callback_data="site_use_direct"),
+    ])
     rows.append([InlineKeyboardButton("➕ Add Shortener", callback_data="site_add")])
     rows.append([InlineKeyboardButton("🖥️ Back to Dashboard", callback_data="show_dashboard")])
     return InlineKeyboardMarkup(rows)
@@ -1018,6 +1025,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("🗑️ Site deleted.")
         sites = get_sites(user.id)
         await _edit_screen(query, build_sites_text(sites, user.id), build_sites_keyboard(sites, user.id))
+        return
+        
+    if query.data == "site_info_direct":
+        await query.answer("🛡️ Direct Protect — links are secured without any shortener.", show_alert=True)
         return
 
     # ── Select which shortener protects the user's links ──
