@@ -668,7 +668,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     processing_msg = await update.message.reply_text(
-        bold_all(f"⚙️ Processing {len(urls)} link{'s' if len(urls) > 1 else ''}\\.\\.\\."),
+        bold_all(f"`⏳ ​🇵​​🇷​​🇴​​🇨​​🇪​​🇸​​🇸​​🇮​​🇳​​🇬​ {len(urls)} ​🇱​​🇮​​🇳​​🇰​​{'s' if len(urls) > 1 else ''}...`"),
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
