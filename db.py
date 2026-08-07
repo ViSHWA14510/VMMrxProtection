@@ -206,3 +206,54 @@ def increment_site_links(site_id: int):
 
 def delete_site(site_id: int, user_id: int):
     sites_col.delete_one({"id": site_id, "user_id": user_id})
+    # If the deleted site was the user's active choice, clear it so we
+    # fall back to their oldest remaining site (or direct protect).
+    users_col.update_one(
+        {"user_id": user_id, "active_site_id": site_id},
+        {"$set": {"active_site_id": None}},
+    )
+
+# ── Active protection mode (per-user) ──────────────────────────────────────────
+# mode: "shortener" (default) -> shorten via the active/default site, then protect
+#       "direct"              -> skip shortening, protect the original link only
+
+def set_user_mode(user_id: int, mode: str):
+    """mode must be 'shortener' or 'direct'."""
+    if mode not in ("shortener", "direct"):
+        raise ValueError("mode must be 'shortener' or 'direct'")
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {"mode": mode},
+            "$setOnInsert": {
+                "username": "", "full_name": "",
+                "approved": False, "pending": False,
+                "created_at": _now_iso(),
+            },
+        },
+        upsert=True,
+    )
+
+def get_user_mode(user_id: int) -> str:
+    doc = users_col.find_one({"user_id": user_id})
+    return (doc or {}).get("mode") or "shortener"
+
+def set_active_site(user_id: int, site_id: int):
+    """Selects which of the user's shortener sites to use, and switches
+    their mode to 'shortener' (in case they were on direct-protect)."""
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {"active_site_id": site_id, "mode": "shortener"},
+            "$setOnInsert": {
+                "username": "", "full_name": "",
+                "approved": False, "pending": False,
+                "created_at": _now_iso(),
+            },
+        },
+        upsert=True,
+    )
+
+def get_active_site_id(user_id: int) -> int | None:
+    doc = users_col.find_one({"user_id": user_id})
+    return (doc or {}).get("active_site_id")
