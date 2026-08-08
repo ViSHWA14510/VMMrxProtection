@@ -1,5 +1,16 @@
 import crypto from "crypto";
 
+// ── Upstash Redis helper (used to store short-lived, single-use redirect sessions) ──
+async function redisSetEx(key, value, ttlSeconds) {
+  // Upstash REST: POST /set/key/value?EX=ttl
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}?EX=${ttlSeconds}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+  });
+  if (!res.ok) throw new Error("Redis set failed");
+}
+
 function sign(data, secret) {
   return crypto.createHmac("sha256", secret).update(data).digest("hex");
 }
@@ -119,9 +130,31 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Token contains unsafe URL protocol" });
     }
 
+    // ── Never return the raw destination URL to the client ──
+    // Instead, store it server-side under a random, single-use session id
+    // with a short TTL, bind it to this browser via an httpOnly cookie,
+    // and let /api/go perform the actual server-side redirect.
+    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+      console.error("[verify] Upstash env vars not set");
+      return res.status(500).json({ error: "Server misconfiguration" });
+    }
+
+    const sessionId = crypto.randomBytes(24).toString("base64url");
+    const sessionSecret = crypto.randomBytes(24).toString("base64url");
+    const SESSION_TTL_SECONDS = 60;
+
+    // Store "url|sessionSecret" so /api/go can confirm the cookie matches
+    await redisSetEx(`redir:${sessionId}`, `${decoded}|${sessionSecret}`, SESSION_TTL_SECONDS);
+
+    // Bind the session to this browser with an httpOnly cookie so a token
+    // solved elsewhere (e.g. by a script) can't be handed to another client.
+    res.setHeader("Set-Cookie", [
+      `vmmrx_sess=${sessionId}.${sessionSecret}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; HttpOnly; Secure; SameSite=Strict`
+    ]);
+
     return res.status(200).json({
       success: true,
-      url: decoded
+      session: sessionId
     });
 
   } catch (err) {
