@@ -79,24 +79,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Encode the ORIGINAL URL directly — no shortener involved
+    // Store the destination only inside a signed server-side token.
+    // The client receives only the opaque /s/<code> protected URL.
     const payload = Buffer.from(url.trim()).toString("base64url");
     const signature = sign(payload, process.env.TOKEN_SECRET);
     const token = `${payload}.${signature}`;
 
     const siteUrl = process.env.SITE_URL.replace(/\/$/, "");
-    const protectedUrl = `${siteUrl}/token/${token}`;  // legacy — kept forever
-
-    // Generate truly short code and store token in Upstash Redis
     const code = generateCode(8);
     await redisSet(`short:${code}`, token);
     const shortProtectedUrl = `${siteUrl}/s/${code}`;
 
     return res.status(200).json({
       success: true,
-      protected_url: protectedUrl,           // old long format (still works)
-      short_protected_url: shortProtectedUrl, // new short format
-      original_url: url.trim()
+      protected_url: shortProtectedUrl,
+      short_protected_url: shortProtectedUrl
     });
 
   } catch (err) {
