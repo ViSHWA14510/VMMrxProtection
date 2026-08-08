@@ -102,8 +102,25 @@ export default async function handler(req, res) {
     return res.status(403).send("Invalid destination");
   }
 
+  // Instead of redirecting straight to the destination, hop through the
+  // Cloudflare Worker first. The payload is re-signed here with a short
+  // expiry so the Worker can verify it came from this server and hasn't
+  // been reused or tampered with — this keeps the Worker from being usable
+  // as a generic open redirector by anyone who guesses its URL shape.
+  if (!process.env.WORKER_BASE) {
+    console.error("[go] WORKER_BASE env var is not set");
+    return res.status(500).send("Server misconfiguration");
+  }
+
+  const exp = Date.now() + 60_000; // 1 minute to complete the final hop
+  const hopPayload = Buffer.from(JSON.stringify({ d: destination, exp })).toString("base64url");
+  const hopSignature = crypto.createHmac("sha256", process.env.TOKEN_SECRET).update(hopPayload).digest("hex");
+
+  const workerBase = process.env.WORKER_BASE.replace(/\/$/, "");
+  const workerUrl = `${workerBase}/go?u=${encodeURIComponent(hopPayload)}&sig=${hopSignature}`;
+
   // The session was atomically consumed by GETDEL above.
-  res.setHeader("Set-Cookie", "vg_verified=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
-  res.setHeader("Location", destination);
+  res.setHeader("Set-Cookie", "vg_verified=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None");
+  res.setHeader("Location", workerUrl);
   return res.status(302).end();
 }
