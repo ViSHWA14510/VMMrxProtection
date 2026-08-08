@@ -17,16 +17,16 @@
       "destination": "/api/direct"
     },
     {
+      "source": "/api/go",
+      "destination": "/api/go"
+    },
+    {
       "source": "/api/track",
       "destination": "/api/track"
     },
     {
       "source": "/api/stats",
       "destination": "/api/stats"
-    },
-    {
-      "source": "/api/go",
-      "destination": "/api/go"
     },
     {
       "source": "/token/(.*)",
