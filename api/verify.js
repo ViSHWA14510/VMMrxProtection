@@ -1,9 +1,52 @@
 import crypto from "crypto";
 
-// ── Upstash Redis helper (used to store short-lived, single-use redirect sessions) ──
-async function redisSetEx(key, value, ttlSeconds) {
-  // Upstash REST: POST /set/key/value?EX=ttl
-  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}?EX=${ttlSeconds}`;
+const SESSION_TTL = 10 * 60;
+
+function sign(data, secret) {
+  return crypto.createHmac("sha256", secret).update(data).digest("hex");
+}
+
+function safeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b)); }
+  catch { return false; }
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function fingerprint(req) {
+  const ip = getClientIp(req);
+  const ua = req.headers["user-agent"] || "";
+  const secret = process.env.SESSION_SECRET || process.env.TOKEN_SECRET || "";
+  return crypto.createHash("sha256").update(`${secret}|${ip}|${ua}`).digest("hex");
+}
+
+function getCookie(req, name) {
+  const raw = req.headers.cookie || "";
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+
+async function redisGet(key) {
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/get/${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.result ?? null;
+}
+
+async function redisSetEx(key, value, seconds) {
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}/EX/${seconds}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
@@ -11,154 +54,114 @@ async function redisSetEx(key, value, ttlSeconds) {
   if (!res.ok) throw new Error("Redis set failed");
 }
 
-function sign(data, secret) {
-  return crypto.createHmac("sha256", secret).update(data).digest("hex");
-}
-
-
-// FIX: Timing-safe comparison to prevent HMAC timing attacks
-function safeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-  } catch {
-    return false;
-  }
+async function redisDel(key) {
+  const url = `${process.env.UPSTASH_REDIS_REST_URL}/del/${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+  });
+  return res.ok;
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Access-Control-Allow-Origin", process.env.SITE_URL || "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  for (const key of ["TURNSTILE_SECRET_KEY", "TOKEN_SECRET", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]) {
+    if (!process.env[key]) {
+      console.error(`[verify] ${key} is not set`);
+      return res.status(500).json({ error: "Server misconfiguration" });
+    }
   }
 
-  // FIX: Guard against missing/malformed body
   const body = req.body;
-  if (!body || typeof body !== "object") {
-    return res.status(400).json({ error: "Invalid request body" });
+  if (!body || typeof body !== "object") return res.status(400).json({ error: "Invalid request body" });
+
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+  const cfToken = typeof body.cfToken === "string" ? body.cfToken.trim() : "";
+
+  if (!/^[A-Za-z0-9_-]{40,64}$/.test(sessionId)) return res.status(400).json({ error: "Invalid verification session" });
+  if (!cfToken) return res.status(400).json({ error: "Missing cfToken" });
+
+  const cookieSession = getCookie(req, "vg_session");
+  if (!cookieSession || !safeEqual(cookieSession, sessionId)) {
+    return res.status(403).json({ error: "Verification session mismatch" });
   }
 
-  const { token, cfToken } = body;
+  const rawSession = await redisGet(`verify:${sessionId}`);
+  if (!rawSession) return res.status(410).json({ error: "Verification session expired" });
 
-  if (!token || typeof token !== "string" || !token.trim()) {
-    return res.status(400).json({ error: "Missing token" });
-  }
-  if (!cfToken || typeof cfToken !== "string" || !cfToken.trim()) {
-    return res.status(400).json({ error: "Missing cfToken" });
-  }
+  let session;
+  try { session = JSON.parse(rawSession); }
+  catch { return res.status(410).json({ error: "Invalid verification session" }); }
 
-  // FIX: Validate required env vars upfront
-  if (!process.env.TURNSTILE_SECRET_KEY) {
-    console.error("[verify] TURNSTILE_SECRET_KEY env var is not set");
-    return res.status(500).json({ error: "Server misconfiguration" });
-  }
-  if (!process.env.TOKEN_SECRET) {
-    console.error("[verify] TOKEN_SECRET env var is not set");
-    return res.status(500).json({ error: "Server misconfiguration" });
+  if (session.used || session.fp !== fingerprint(req)) {
+    return res.status(403).json({ error: "Verification session is no longer valid" });
   }
 
-  // ── Step 1: Verify Cloudflare Turnstile ──
+  // Verify Cloudflare Turnstile on the server.
   let cfData;
   try {
-    const cfRes = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          secret: process.env.TURNSTILE_SECRET_KEY,
-          response: cfToken
-        })
-      }
-    );
+    const cfRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: cfToken,
+        remoteip: getClientIp(req),
+      }),
+    });
 
-    // FIX: Handle Turnstile API non-200 responses
-    if (!cfRes.ok) {
-      console.error("[verify] Turnstile API HTTP error:", cfRes.status);
-      return res.status(502).json({ error: "Could not reach verification service" });
-    }
-
+    if (!cfRes.ok) return res.status(502).json({ error: "Could not reach verification service" });
     cfData = await cfRes.json();
   } catch (err) {
-    console.error("[verify] Turnstile fetch error:", err);
+    console.error("[verify] Turnstile error:", err);
     return res.status(502).json({ error: "Could not reach verification service" });
   }
 
   if (!cfData.success) {
-    // FIX: Log Turnstile error codes for debugging
     console.warn("[verify] Turnstile rejected:", cfData["error-codes"]);
     return res.status(403).json({ error: "Human verification failed. Please try again." });
   }
 
-  // ── Step 2: Validate signed token ──
+  // Validate the signed destination stored server-side.
+  const token = session.token;
+  const dotIndex = typeof token === "string" ? token.indexOf(".") : -1;
+  if (dotIndex === -1) return res.status(403).json({ error: "Invalid protected link" });
+
+  const payload = token.substring(0, dotIndex);
+  const signature = token.substring(dotIndex + 1);
+  const expectedSig = sign(payload, process.env.TOKEN_SECRET);
+  if (!safeEqual(signature, expectedSig)) return res.status(403).json({ error: "Invalid protected link" });
+
+  let decoded;
+  try { decoded = Buffer.from(payload, "base64url").toString("utf-8"); }
+  catch { return res.status(403).json({ error: "Invalid protected link" }); }
+
   try {
-    // FIX: Validate token format before splitting
-    const dotIndex = token.indexOf(".");
-    if (dotIndex === -1) {
-      return res.status(400).json({ error: "Invalid token format" });
-    }
-
-    const payload = token.substring(0, dotIndex);
-    const signature = token.substring(dotIndex + 1);
-
-    if (!payload || !signature) {
-      return res.status(400).json({ error: "Invalid token format" });
-    }
-
-    const expectedSig = sign(payload, process.env.TOKEN_SECRET);
-    if (!safeEqual(signature, expectedSig)) {
-      return res.status(403).json({ error: "Invalid token signature" });
-    }
-
-    // ── Step 3: Decode and validate the URL inside ──
-    let decoded;
-    try {
-      decoded = Buffer.from(payload, "base64url").toString("utf-8");
-    } catch {
-      return res.status(400).json({ error: "Could not decode token" });
-    }
-
-    // FIX: Validate decoded value is a valid URL
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(decoded);
-    } catch {
-      return res.status(400).json({ error: "Token contains invalid URL" });
-    }
-
-    // FIX: Only allow http/https redirect targets
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return res.status(400).json({ error: "Token contains unsafe URL protocol" });
-    }
-
-    // ── Never return the raw destination URL to the client ──
-    // Instead, store it server-side under a random, single-use session id
-    // with a short TTL, bind it to this browser via an httpOnly cookie,
-    // and let /api/go perform the actual server-side redirect.
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-      console.error("[verify] Upstash env vars not set");
-      return res.status(500).json({ error: "Server misconfiguration" });
-    }
-
-    const sessionId = crypto.randomBytes(24).toString("base64url");
-    const sessionSecret = crypto.randomBytes(24).toString("base64url");
-    const SESSION_TTL_SECONDS = 60;
-
-    // Store "url|sessionSecret" so /api/go can confirm the cookie matches
-    await redisSetEx(`redir:${sessionId}`, `${decoded}|${sessionSecret}`, SESSION_TTL_SECONDS);
-
-    // Bind the session to this browser with an httpOnly cookie so a token
-    // solved elsewhere (e.g. by a script) can't be handed to another client.
-    res.setHeader("Set-Cookie", [
-      `vmmrx_sess=${sessionId}.${sessionSecret}; Path=/; Max-Age=${SESSION_TTL_SECONDS}; HttpOnly; Secure; SameSite=Strict`
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      session: sessionId
-    });
-
-  } catch (err) {
-    console.error("[verify] Token validation error:", err);
-    return res.status(400).json({ error: "Invalid token" });
+    const parsed = new URL(decoded);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("bad protocol");
+  } catch {
+    return res.status(403).json({ error: "Protected link contains an invalid destination" });
   }
+
+  // Mark the session as used before allowing the redirect.
+  // This prevents reusing the same verification session after successful verification.
+  await redisSetEx(`verify:${sessionId}`, JSON.stringify({ ...session, used: true }), 60);
+
+  // Do NOT return the destination URL. The browser only gets an internal route.
+  res.setHeader(
+    "Set-Cookie",
+    "vg_verified=1; Path=/; Max-Age=60; HttpOnly; Secure; SameSite=Lax"
+  );
+
+  return res.status(200).json({
+    success: true,
+    redirect: `/api/go?sid=${encodeURIComponent(sessionId)}`,
+  });
 }
