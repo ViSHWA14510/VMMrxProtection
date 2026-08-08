@@ -251,67 +251,56 @@ body{
 </div>
 
 <script>
-/* ── Token extraction helper ── */
-// Handles both /token/<long-token> (legacy) and /s/<short-code> (new)
-// Returns: { token: string, isShort: bool } or null
-function getTokenInfoFromURL(){
-  const path = window.location.pathname;
-  const legacyMatch = path.match(/\/token\/(.+)/);
-  if(legacyMatch && legacyMatch[1]){
-    return { token: legacyMatch[1].split('?')[0].replace(/\/$/, ''), isShort: false };
-  }
-  const shortMatch = path.match(/\/s\/([^/?]+)/);
-  if(shortMatch && shortMatch[1]){
-    return { token: shortMatch[1], isShort: true };
-  }
-  return null;
+/* ── Protected-link session flow ──
+   The destination token is NEVER sent to the browser.
+   /api/resolve converts /s/CODE -> opaque verification session.
+   /api/verify validates Turnstile + server-side session.
+   /api/go performs the final server-side 302 redirect.
+*/
+function getCodeFromURL(){
+  const m = window.location.pathname.match(/^\/s\/([A-Za-z0-9_-]{4,32})\/?$/);
+  return m ? m[1] : null;
 }
 
-// Legacy shim — returns the token string directly (for tracking & verify calls)
 function getTokenFromURL(){
-  const info = getTokenInfoFromURL();
-  return info ? info.token : null;
+  // Kept only for stats compatibility. Never exposes the real token.
+  return getCodeFromURL();
 }
 
-// Short /s/ URLs use a short code stored in Upstash Redis.
-// Call /api/resolve to get the full token back.
-async function resolveToken(){
-  const info = getTokenInfoFromURL();
-  if(!info) return null;
-  if(!info.isShort) return info.token;  // /token/ — already full token
+async function resolveSession(){
+  const code = getCodeFromURL();
+  if(!code) return null;
 
   const res = await fetch('/api/resolve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: info.token })
+    method:'POST',
+    credentials:'same-origin',
+    cache:'no-store',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({code})
   });
-  if(!res.ok){
-    throw new Error('Short link not found or expired.');
+
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || !data.sessionId) {
+    throw new Error(data.error || 'Protected link not found or expired.');
   }
-  const data = await res.json();
-  if(!data.token) throw new Error('Could not resolve short link.');
-  return data.token;
+  return data.sessionId;
 }
 
-
-/* ── Stats Tracking ── */
-function trackEvent(type, token, url) {
-  try {
+function trackEvent(type, code){
+  try{
     fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, token, url: url || '' })
-    }).catch(() => {}); // fire and forget, never block UX
-  } catch(e) {}
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type, token:code})
+    }).catch(()=>{});
+  }catch(e){}
 }
 
-// Fire "view" immediately on page load
-(function() {
-  const tok = getTokenFromURL();
-  if (tok) trackEvent('view', tok);
+(function(){
+  const code = getCodeFromURL();
+  if(code) trackEvent('view', code);
 })();
 
-/* ── State management ── */
 function showState(state){
   document.getElementById('initialState').style.display   = state==='initial'   ? 'block' : 'none';
   document.getElementById('progressWrap').style.display   = state==='progress'  ? 'flex'  : 'none';
@@ -324,12 +313,8 @@ function showError(msg){
   showState('error');
 }
 
-function retryVerification(){
-  window.location.reload();
-}
+function retryVerification(){ window.location.reload(); }
 
-/* ── Turnstile Callbacks ── */
-// FIX: Guard against duplicate calls (Turnstile can fire callback multiple times)
 let _verifying = false;
 
 window.onTurnstileSuccess = async function(cfToken){
@@ -337,57 +322,42 @@ window.onTurnstileSuccess = async function(cfToken){
   _verifying = true;
 
   const statusEl = document.getElementById('cfStatus');
-  statusEl.textContent = '✓ Human verified! Validating secure token...';
+  statusEl.textContent = '✓ Human verified! Creating secure redirect...';
   statusEl.classList.add('success');
 
-  // Resolve short code (/s/CODE) or use full token (/token/...)
-  let token;
-  try {
-    token = await resolveToken();
-  } catch(err) {
-    showError(err.message || 'Could not resolve this link. It may be expired or invalid.');
+  let sessionId;
+  try{
+    sessionId = await resolveSession();
+  }catch(err){
+    _verifying = false;
+    showError(err.message || 'Could not create a verification session.');
     return;
   }
 
-  if(!token){
-    showError('Destination URL is missing. This link may be invalid or expired.');
-    return;
-  }
-
-  try {
+  try{
     const res = await fetch('/api/verify', {
-      method: 'POST',
-      credentials: 'same-origin', // needed so the session cookie set by /api/verify is stored
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, cfToken })
+      method:'POST',
+      credentials:'same-origin',
+      cache:'no-store',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sessionId, cfToken})
     });
 
-    const data = await res.json();
-
-    if(!res.ok || !data.success){
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.success || !data.redirect){
       throw new Error(data.error || 'Verification failed');
     }
 
-    if(!data.session){
-      throw new Error('Server returned no redirect session');
-    }
-
-    // The destination URL is never sent to the browser as readable JSON —
-    // /api/go performs the actual redirect server-side using the session id
-    // plus the httpOnly cookie set by /api/verify.
-    const goUrl = '/api/go?session=' + encodeURIComponent(data.session);
-    trackEvent('visit', token, '');
-    startVerify(goUrl);
-
-  } catch(err) {
-    _verifying = false; // allow retry
+    // Only the internal redirect route is exposed to JavaScript.
+    trackEvent('visit', getCodeFromURL());
+    startVerify(data.redirect);
+  }catch(err){
+    _verifying = false;
     statusEl.textContent = '✗ ' + (err.message || 'Verification failed');
     statusEl.classList.remove('success');
     statusEl.classList.add('error');
     console.error('[VM-MRX]', err);
-
-    // FIX: Show proper error state instead of silently failing
-    setTimeout(()=>{ showError(err.message || 'Verification failed. Please try again.'); }, 1200);
+    setTimeout(()=>showError(err.message || 'Verification failed. Please try again.'), 800);
   }
 };
 
@@ -395,7 +365,7 @@ window.onTurnstileError = function(){
   const s=document.getElementById('cfStatus');
   s.textContent='✗ Verification error. Please try again.';
   s.classList.add('error');
-  _verifying = false;
+  _verifying=false;
 };
 
 window.onTurnstileExpired = function(){
@@ -403,55 +373,39 @@ window.onTurnstileExpired = function(){
   s.textContent='⚠ Challenge expired. Refreshing widget...';
   s.classList.remove('success');
   s.classList.add('error');
-  _verifying = false;
-  if(typeof turnstile !== 'undefined') turnstile.reset();
+  _verifying=false;
+  if(typeof turnstile!=='undefined') turnstile.reset();
 };
 
-/* ── Verify → Redirect (no fake steps, no click needed) ── */
-function startVerify(redirectUrl){
-  if(!redirectUrl){
-    showError('Redirect URL is missing.');
+function startVerify(redirectPath){
+  if(!redirectPath){
+    showError('Secure redirect is unavailable.');
     return;
   }
   showState('progress');
-  document.getElementById('pLabel').textContent = 'Redirecting...';
-  showSuccess(redirectUrl);
+  document.getElementById('pLabel').textContent='Redirecting...';
+  showSuccess(redirectPath);
 }
 
-/* ── Success + Redirect (green countdown pill) ── */
-// FIX: redirectUrl parameter is now always passed correctly from startVerify
-function showSuccess(redirectUrl){
+function showSuccess(redirectPath){
   setTimeout(()=>{
     showState('success');
+    const link=document.getElementById('mLink');
+    link.href=redirectPath;
+    link.style.display='inline';
 
-    if(redirectUrl){
-      const link = document.getElementById('mLink');
-      link.href = redirectUrl;
-      link.style.display = 'inline';
+    const pill=document.getElementById('redirPill');
+    let secs=5;
+    pill.textContent='Auto-redirecting in '+secs+'s...';
 
-      const pill = document.getElementById('redirPill');
-      let secs = 5;
-      pill.textContent = 'Auto-redirecting in ' + secs + 's...';
+    const timer=setInterval(()=>{
+      secs--;
+      if(secs>0) pill.textContent='Auto-redirecting in '+secs+'s...';
+      else { clearInterval(timer); pill.textContent='Redirecting now...'; }
+    },1000);
 
-      const timer = setInterval(()=>{
-        secs -= 1;
-        if(secs > 0){
-          pill.textContent = 'Auto-redirecting in ' + secs + 's...';
-        } else {
-          clearInterval(timer);
-          pill.textContent = 'Redirecting now...';
-        }
-      }, 1000);
-
-      // Redirect automatically after the countdown — no click required
-      setTimeout(()=>{
-        window.location.href = redirectUrl;
-      }, 5000);
-    } else {
-      // FIX: Show proper error instead of broken "URL missing" message
-      showError('Redirect URL is missing. This link may be invalid.');
-    }
-  }, 250);
+    setTimeout(()=>{ window.location.replace(redirectPath); },5000);
+  },250);
 }
 </script>
 </body>
