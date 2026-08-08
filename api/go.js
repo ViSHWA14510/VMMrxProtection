@@ -99,6 +99,7 @@ export default async function handler(req, res) {
 
   // Clear the session cookie now that it's used
   res.setHeader("Set-Cookie", "vmmrx_sess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict");
+  
   res.setHeader("Cache-Control", "no-store");
   res.writeHead(302, { Location: destUrl });
   return res.end();
