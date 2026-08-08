@@ -2,6 +2,29 @@ import crypto from "crypto";
 
 const SESSION_TTL = 10 * 60;
 
+// ── Known scraper / automation signatures ──────────────────────────
+// Blocks the most common non-browser HTTP clients used for scraping.
+// Not exhaustive (nothing is), but it filters the bulk of naive bots.
+const BOT_UA_PATTERNS = [
+  /curl\//i, /wget/i, /python-requests/i, /python-urllib/i, /aiohttp/i,
+  /scrapy/i, /httpclient/i, /okhttp/i, /go-http-client/i, /libwww-perl/i,
+  /axios\//i, /node-fetch/i, /^java\//i, /^ruby/i, /phantomjs/i,
+  /headlesschrome/i, /puppeteer/i, /playwright/i, /selenium/i,
+  /bot|crawl|spider|scraper|slurp|fetch\b/i,
+];
+
+function isBotRequest(req) {
+  const ua = req.headers["user-agent"] || "";
+  if (!ua) return true; // real browsers always send a UA
+  if (BOT_UA_PATTERNS.some((re) => re.test(ua))) return true;
+
+  // Real browsers send Accept and Accept-Language on a top-level navigation.
+  const accept = req.headers["accept"] || "";
+  if (!accept.includes("text/html") && !accept.includes("*/*")) return true;
+
+  return false;
+}
+
 function randomId(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
@@ -38,6 +61,29 @@ async function redisGet(key) {
   return data.result ?? null;
 }
 
+// ── Simple fixed-window rate limiter, backed by Redis INCR + EXPIRE ─
+// Returns true if the request should be allowed.
+async function rateLimit(key, limit, windowSeconds) {
+  const incrUrl = `${process.env.UPSTASH_REDIS_REST_URL}/incr/${encodeURIComponent(key)}`;
+  const res = await fetch(incrUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+  });
+  if (!res.ok) return true; // fail open if Redis is briefly unavailable
+  const data = await res.json();
+  const count = Number(data.result) || 1;
+
+  if (count === 1) {
+    // First hit in this window — set expiry.
+    await fetch(
+      `${process.env.UPSTASH_REDIS_REST_URL}/expire/${encodeURIComponent(key)}/${windowSeconds}`,
+      { method: "POST", headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } }
+    ).catch(() => {});
+  }
+
+  return count <= limit;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.SITE_URL || "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -50,6 +96,20 @@ export default async function handler(req, res) {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     console.error("[resolve] Upstash env vars are not set");
     return res.status(500).json({ error: "Server misconfiguration" });
+  }
+
+  // Reject obvious non-browser clients before doing any work.
+  if (isBotRequest(req)) {
+    return res.status(403).json({ error: "Automated access is not permitted" });
+  }
+
+  // Rate limit per IP: 20 resolve attempts per minute is generous for a
+  // human clicking a link, but chokes off scrapers hitting many codes fast.
+  const ip = getClientIp(req);
+  const allowed = await rateLimit(`rl:resolve:${ip}`, 20, 60);
+  if (!allowed) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "Too many requests, slow down" });
   }
 
   const body = req.body;
