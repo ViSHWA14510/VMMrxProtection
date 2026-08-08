@@ -357,6 +357,7 @@ window.onTurnstileSuccess = async function(cfToken){
   try {
     const res = await fetch('/api/verify', {
       method: 'POST',
+      credentials: 'same-origin', // needed so the session cookie set by /api/verify is stored
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, cfToken })
     });
@@ -367,13 +368,16 @@ window.onTurnstileSuccess = async function(cfToken){
       throw new Error(data.error || 'Verification failed');
     }
 
-    if(!data.url){
-      throw new Error('Server returned no redirect URL');
+    if(!data.session){
+      throw new Error('Server returned no redirect session');
     }
 
-
-    trackEvent('visit', token, data.url);
-    startVerify(data.url);
+    // The destination URL is never sent to the browser as readable JSON —
+    // /api/go performs the actual redirect server-side using the session id
+    // plus the httpOnly cookie set by /api/verify.
+    const goUrl = '/api/go?session=' + encodeURIComponent(data.session);
+    trackEvent('visit', token, '');
+    startVerify(goUrl);
 
   } catch(err) {
     _verifying = false; // allow retry
