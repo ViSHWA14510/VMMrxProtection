@@ -25,6 +25,10 @@
       "destination": "/api/stats"
     },
     {
+      "source": "/api/go",
+      "destination": "/api/go"
+    },
+    {
       "source": "/token/(.*)",
       "destination": "/index.html"
     },
