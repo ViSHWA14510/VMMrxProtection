@@ -63,6 +63,24 @@ async function redisDel(key) {
   return res.ok;
 }
 
+async function rateLimit(key, limit, windowSeconds) {
+  const incrUrl = `${process.env.UPSTASH_REDIS_REST_URL}/incr/${encodeURIComponent(key)}`;
+  const res = await fetch(incrUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+  });
+  if (!res.ok) return true;
+  const data = await res.json();
+  const count = Number(data.result) || 1;
+  if (count === 1) {
+    await fetch(
+      `${process.env.UPSTASH_REDIS_REST_URL}/expire/${encodeURIComponent(key)}/${windowSeconds}`,
+      { method: "POST", headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } }
+    ).catch(() => {});
+  }
+  return count <= limit;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", process.env.SITE_URL || "*");
@@ -77,6 +95,15 @@ export default async function handler(req, res) {
       console.error(`[verify] ${key} is not set`);
       return res.status(500).json({ error: "Server misconfiguration" });
     }
+  }
+
+  // Rate limit verification attempts per IP — scrapers that got past
+  // /resolve will typically hammer /verify trying to brute or replay tokens.
+  const limitIp = getClientIp(req);
+  const allowed = await rateLimit(`rl:verify:${limitIp}`, 15, 60);
+  if (!allowed) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "Too many requests, slow down" });
   }
 
   const body = req.body;
@@ -102,6 +129,14 @@ export default async function handler(req, res) {
 
   if (session.used || session.fp !== fingerprint(req)) {
     return res.status(403).json({ error: "Verification session is no longer valid" });
+  }
+
+  // Timing check: a real visitor needs at least ~1.2s to load the page,
+  // render Turnstile, and solve it. Anything faster is almost certainly an
+  // automated client replaying a captured token.
+  const elapsed = Date.now() - (Number(session.createdAt) || 0);
+  if (elapsed < 1200) {
+    return res.status(403).json({ error: "Verification failed" });
   }
 
   // Verify Cloudflare Turnstile on the server.
