@@ -135,7 +135,7 @@ export default async function handler(req, res) {
   // render Turnstile, and solve it. Anything faster is almost certainly an
   // automated client replaying a captured token.
   const elapsed = Date.now() - (Number(session.createdAt) || 0);
-  if (elapsed < 60000) {
+  if (elapsed < 1200) {
     return res.status(403).json({ error: "Verification failed" });
   }
 
