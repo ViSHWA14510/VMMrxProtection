@@ -117,16 +117,13 @@ export default async function handler(req, res) {
 
     const shortUrl = shortData.shortenedUrl;
 
-    // Create signed token: base64url(shortUrl) + "." + HMAC
+    // Create a signed token and keep it server-side in Redis.
+    // The browser only receives the opaque /s/<code> URL.
     const payload = Buffer.from(shortUrl).toString("base64url");
     const signature = sign(payload, process.env.TOKEN_SECRET);
     const token = `${payload}.${signature}`;
 
-    // FIX: Strip trailing slash from SITE_URL to avoid double slashes
     const siteUrl = process.env.SITE_URL.replace(/\/$/, "");
-    const protectedUrl = `${siteUrl}/token/${token}`;  // legacy — kept forever
-
-    // Generate truly short code and store token in Upstash Redis
     const code = generateCode(8);
     await redisSet(`short:${code}`, token);
     const shortProtectedUrl = `${siteUrl}/s/${code}`;
@@ -134,8 +131,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       short_url: shortUrl,
-      protected_url: protectedUrl,           // old long format (still works)
-      short_protected_url: shortProtectedUrl  // new short format
+      protected_url: shortProtectedUrl,
+      short_protected_url: shortProtectedUrl
     });
 
   } catch (err) {
