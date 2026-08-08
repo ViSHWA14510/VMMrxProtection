@@ -9,6 +9,33 @@ function getCookie(req, name) {
   return null;
 }
 
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function fingerprint(req) {
+  const ip = getClientIp(req);
+  const ua = req.headers["user-agent"] || "";
+  const secret = process.env.SESSION_SECRET || process.env.TOKEN_SECRET || "";
+  return crypto.createHash("sha256").update(`${secret}|${ip}|${ua}`).digest("hex");
+}
+
+const BOT_UA_PATTERNS = [
+  /curl\//i, /wget/i, /python-requests/i, /python-urllib/i, /aiohttp/i,
+  /scrapy/i, /httpclient/i, /okhttp/i, /go-http-client/i, /libwww-perl/i,
+  /axios\//i, /node-fetch/i, /^java\//i, /^ruby/i, /phantomjs/i,
+  /headlesschrome/i, /puppeteer/i, /playwright/i, /selenium/i,
+  /bot|crawl|spider|scraper|slurp/i,
+];
+
+function isBotRequest(req) {
+  const ua = req.headers["user-agent"] || "";
+  if (!ua) return true;
+  return BOT_UA_PATTERNS.some((re) => re.test(ua));
+}
+
 async function redisGetDel(key) {
   const url = `${process.env.UPSTASH_REDIS_REST_URL}/getdel/${encodeURIComponent(key)}`;
   const res = await fetch(url, {
@@ -28,6 +55,8 @@ export default async function handler(req, res) {
     return res.status(500).send("Server misconfiguration");
   }
 
+  if (isBotRequest(req)) return res.status(403).send("Automated access is not permitted");
+
   const sid = typeof req.query?.sid === "string" ? req.query.sid : "";
   if (!/^[A-Za-z0-9_-]{40,64}$/.test(sid)) return res.status(400).send("Invalid redirect session");
 
@@ -42,6 +71,14 @@ export default async function handler(req, res) {
   catch { return res.status(410).send("Invalid redirect session"); }
 
   if (!session.used || typeof session.token !== "string") {
+    return res.status(403).send("Verification required");
+  }
+
+  // Re-check the fingerprint here too. /verify already checked it, but this
+  // stops a scraper that captured just the vg_verified cookie/sid pair
+  // (e.g. via a proxy or shared log) from replaying it from a different
+  // IP/User-Agent than the one that actually passed Turnstile.
+  if (session.fp !== fingerprint(req)) {
     return res.status(403).send("Verification required");
   }
 
