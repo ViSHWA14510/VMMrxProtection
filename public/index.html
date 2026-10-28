@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- MONETAG: dashboard me site add karne par agar meta tag mile to yahan paste karo, e.g. <meta name="monetag" content="..."/> -->
 <title>Verify to Continue — VM-MRX-PROTECTION</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -147,6 +148,23 @@ body{
 .turnstile-status.success{color:#059669}
 .turnstile-status.error{color:#e11d48}
 
+/* ── Continue button + sponsor note ── */
+.btn-continue{
+  width:100%;margin-top:8px;padding:14px 20px;border:none;border-radius:999px;
+  background:linear-gradient(135deg,var(--indigo),#a78bfa);color:#fff;
+  font-size:15px;font-weight:700;letter-spacing:0.02em;cursor:pointer;
+  transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 10px 24px -6px rgba(99,102,241,0.5);
+}
+.btn-continue:hover{transform:translateY(-1px);box-shadow:0 14px 28px -6px rgba(99,102,241,0.55)}
+.btn-continue:disabled{opacity:0.7;cursor:default;transform:none}
+.sponsor-note{font-size:11px;color:#94a3b8;text-align:center;line-height:1.5;margin-top:2px}
+
+/* ── Ad slot (Monetag) ── */
+#adSlot{width:100%;display:flex;justify-content:center;align-items:center;margin-top:10px;min-height:0}
+#adSlot:empty{display:none}
+#adSlot > *{max-width:100%}
+
 /* ── Error State ── */
 #errorWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px}
 .err-icon{
@@ -225,7 +243,10 @@ body{
       <div class="s-icon">&#10003;</div>
       <div class="s-title">Verified!</div>
       <div class="s-sub">Your secure connection is established.</div>
-      <div class="redir-pill" id="redirPill">Auto-redirecting in 5s...</div>
+      <button class="btn-continue" id="continueBtn" type="button">Continue &rarr;</button>
+      <div class="sponsor-note" id="sponsorNote" style="display:none">Continuing opens a sponsor page in a new tab, and this tab takes you to your link.</div>
+      <!-- MONETAG BANNER SLOT: agar Monetag ka banner/native code mila hai to uska HTML yahan paste karo. Push / Vignette / In-Page ke liye iski zaroorat nahi, MONETAG_CONFIG use hoga. -->
+      <div id="adSlot"></div>
     </div>
 
     <!-- ERROR STATE -->
@@ -296,6 +317,49 @@ function trackEvent(type, code){
   const code = getCodeFromURL();
   if(code) trackEvent('view', code);
 })();
+
+/* ── Monetag config ──
+   Monetag dashboard -> Sites -> Add site -> format chuno -> jo <script> tag mile:
+     <script src="https://XXXX/tag.min.js" data-zone="123456" async data-cfasync="false"></script>
+   Usme se src aur data-zone yahan bharo. src khali hai to koi ad load nahi hoga.
+   Tag sirf verification PASS hone ke baad load hota hai, taaki ads sirf real users ko dikhein
+   aur Turnstile challenge ke saath koi clash na ho. */
+const MONETAG_CONFIG = {
+  src:  "",   // OPTIONAL non-blocking tag (e.g. In-Page Push): "https://XXXX/tag.min.js"
+  zone: ""    // e.g. "123456"
+};
+
+/* SmartLink (Direct Link) URL from Monetag dashboard.
+   Continue button dabane par ye naye tab me khulta hai (sirf ek baar per browser session),
+   aur current tab asli destination par chala jata hai.
+   Khali chhodoge to button seedha redirect karega, koi ad nahi. */
+const SMARTLINK_URL = "";   // e.g. "https://XXXX/4/123456"
+const AD_SEEN_KEY   = "vg_ad_seen";
+
+function adAlreadySeen(){
+  try{ return sessionStorage.getItem(AD_SEEN_KEY) === "1"; }catch(e){ return false; }
+}
+function markAdSeen(){
+  try{ sessionStorage.setItem(AD_SEEN_KEY, "1"); }catch(e){}
+}
+function isSafeAdUrl(u){
+  try{ const x = new URL(u); return x.protocol === "https:" || x.protocol === "http:"; }
+  catch(e){ return false; }
+}
+
+let _adLoaded = false;
+function loadMonetag(){
+  if(_adLoaded || !MONETAG_CONFIG.src) return;
+  _adLoaded = true;
+  try{
+    const s = document.createElement('script');
+    s.src = MONETAG_CONFIG.src;
+    s.async = true;
+    if(MONETAG_CONFIG.zone) s.setAttribute('data-zone', MONETAG_CONFIG.zone);
+    s.setAttribute('data-cfasync','false');
+    document.body.appendChild(s);
+  }catch(e){ console.error('[VM-MRX] ad load failed', e); }
+}
 
 function showState(state){
   document.getElementById('initialState').style.display   = state==='initial'   ? 'block' : 'none';
@@ -386,18 +450,36 @@ function startVerify(redirectPath){
 function showSuccess(redirectPath){
   setTimeout(()=>{
     showState('success');
+    loadMonetag();
 
-    const pill=document.getElementById('redirPill');
-    let secs=5;
-    pill.textContent='Auto-redirecting in '+secs+'s...';
+    const btn  = document.getElementById('continueBtn');
+    const note = document.getElementById('sponsorNote');
+    const willShowAd = !!SMARTLINK_URL && isSafeAdUrl(SMARTLINK_URL) && !adAlreadySeen();
 
-    const timer=setInterval(()=>{
-      secs--;
-      if(secs>0) pill.textContent='Auto-redirecting in '+secs+'s...';
-      else { clearInterval(timer); pill.textContent='Redirecting now...'; }
-    },1000);
+    // No ad to show -> keep the original quick auto-redirect, no extra click needed.
+    if(!willShowAd){
+      btn.disabled = true;
+      btn.textContent = 'Redirecting...';
+      setTimeout(()=>{ window.location.replace(redirectPath); }, 1500);
+      return;
+    }
 
-    setTimeout(()=>{ window.location.replace(redirectPath); },5000);
+    note.style.display = 'block';
+    let clicked = false;
+
+    // window.open must run directly inside the click handler or browsers block it.
+    btn.addEventListener('click', ()=>{
+      if(clicked) return;
+      clicked = true;
+      btn.disabled = true;
+      btn.textContent = 'Redirecting...';
+
+      markAdSeen();
+      try{ window.open(SMARTLINK_URL, '_blank', 'noopener'); }catch(e){}
+
+      // Redirect always happens, even if the ad tab was blocked or failed.
+      setTimeout(()=>{ window.location.replace(redirectPath); }, 300);
+    });
   },250);
 }
 </script>
