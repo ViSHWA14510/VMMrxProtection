@@ -152,12 +152,12 @@ export default async function handler(req, res) {
 
   // Mark the session as used before allowing the redirect.
   // This prevents reusing the same verification session after successful verification.
-  await redisSetEx(`verify:${sessionId}`, JSON.stringify({ ...session, used: true }), 60);
+  await redisSetEx(`verify:${sessionId}`, JSON.stringify({ ...session, used: true }), 300);
 
   // Do NOT return the destination URL. The browser only gets an internal route.
   res.setHeader(
     "Set-Cookie",
-    "vg_verified=1; Path=/; Max-Age=60; HttpOnly; Secure; SameSite=Lax"
+    "vg_verified=1; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax"
   );
 
   return res.status(200).json({
