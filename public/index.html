@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<!-- MONETAG: dashboard me site add karne par agar meta tag mile to yahan paste karo, e.g. <meta name="monetag" content="..."/> -->
+<!-- ===== MONETAG VERIFICATION SNIPPET (TEMPORARY) =====
+     Monetag ka installation check isi HTML me tag dhundta hai.
+     Deploy -> Monetag me "run the installation check again" -> verified hone ke baad
+     is poore block ko (START se END tak) DELETE kar do. Uske baad tag sirf
+     Turnstile pass hone par load hoga (MONETAG_CONFIG se). -->
+<!-- MONETAG-STATIC-START -->
+<script>(function(s){s.dataset.zone='12143065',s.src='https://al5sm.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+<!-- MONETAG-STATIC-END -->
 <title>Verify to Continue — VM-MRX-PROTECTION</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -319,14 +326,12 @@ function trackEvent(type, code){
 })();
 
 /* ── Monetag config ──
-   Monetag dashboard -> Sites -> Add site -> format chuno -> jo <script> tag mile:
-     <script src="https://XXXX/tag.min.js" data-zone="123456" async data-cfasync="false"></script>
-   Usme se src aur data-zone yahan bharo. src khali hai to koi ad load nahi hoga.
+   Monetag ke tag se src aur data-zone yahan bharo. src khali hai to koi ad load nahi hoga.
    Tag sirf verification PASS hone ke baad load hota hai, taaki ads sirf real users ko dikhein
    aur Turnstile challenge ke saath koi clash na ho. */
 const MONETAG_CONFIG = {
-  src:  "",   // OPTIONAL non-blocking tag (e.g. In-Page Push): "https://XXXX/tag.min.js"
-  zone: ""    // e.g. "123456"
+  src:  "https://al5sm.com/tag.min.js",   // OnClick tag
+  zone: "12143065"
 };
 
 /* SmartLink (Direct Link) URL from Monetag dashboard.
@@ -351,6 +356,8 @@ let _adLoaded = false;
 function loadMonetag(){
   if(_adLoaded || !MONETAG_CONFIG.src) return;
   _adLoaded = true;
+  // Head wala verification snippet already tag laga chuka ho to dobara load mat karo.
+  if(document.querySelector('script[src*="al5sm.com/tag.min.js"]')) return;
   try{
     const s = document.createElement('script');
     s.src = MONETAG_CONFIG.src;
@@ -454,31 +461,37 @@ function showSuccess(redirectPath){
 
     const btn  = document.getElementById('continueBtn');
     const note = document.getElementById('sponsorNote');
-    const willShowAd = !!SMARTLINK_URL && isSafeAdUrl(SMARTLINK_URL) && !adAlreadySeen();
 
-    // No ad to show -> keep the original quick auto-redirect, no extra click needed.
-    if(!willShowAd){
+    const smartOK  = !!SMARTLINK_URL && isSafeAdUrl(SMARTLINK_URL) && !adAlreadySeen();
+    const onclickOK = !smartOK && !!MONETAG_CONFIG.src;   // OnClick tag ko ek real user click chahiye
+
+    // Mode 3: koi ad configured nahi -> purana quick auto-redirect
+    if(!smartOK && !onclickOK){
       btn.disabled = true;
       btn.textContent = 'Redirecting...';
       setTimeout(()=>{ window.location.replace(redirectPath); }, 1500);
       return;
     }
 
+    note.textContent = smartOK
+      ? 'Continuing opens a sponsor page in a new tab, and this tab takes you to your link.'
+      : 'Continuing may open a sponsor page in a new tab, and this tab takes you to your link.';
     note.style.display = 'block';
-    let clicked = false;
 
-    // window.open must run directly inside the click handler or browsers block it.
+    let clicked = false;
     btn.addEventListener('click', ()=>{
       if(clicked) return;
       clicked = true;
       btn.disabled = true;
       btn.textContent = 'Redirecting...';
 
-      markAdSeen();
-      try{ window.open(SMARTLINK_URL, '_blank', 'noopener'); }catch(e){}
-
-      // Redirect always happens, even if the ad tab was blocked or failed.
-      setTimeout(()=>{ window.location.replace(redirectPath); }, 300);
+      // Mode 1: SmartLink -> window.open click handler ke andar hi hona chahiye
+      if(smartOK){
+        markAdSeen();
+        try{ window.open(SMARTLINK_URL, '_blank', 'noopener'); }catch(e){}
+      }
+      // Mode 2: OnClick -> Monetag ka tag isi click ko sunta hai, hum bas thoda ruk ke redirect karte hain
+      setTimeout(()=>{ window.location.replace(redirectPath); }, smartOK ? 300 : 600);
     });
   },250);
 }
