@@ -1,22 +1,28 @@
+Claude
+
+
+
+
+
+
+
+
+
+
+
+
+Index · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<!-- ===== MONETAG VERIFICATION SNIPPET (TEMPORARY) =====
-     Monetag ka installation check isi HTML me tag dhundta hai.
-     Deploy -> Monetag me "run the installation check again" -> verified hone ke baad
-     is poore block ko (START se END tak) DELETE kar do. Uske baad tag sirf
-     Turnstile pass hone par load hoga (MONETAG_CONFIG se). -->
-<!-- MONETAG-STATIC-START -->
-<script>(function(s){s.dataset.zone='12143065',s.src='https://al5sm.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
-<!-- MONETAG-STATIC-END -->
 <title>Verify to Continue — VM-MRX-PROTECTION</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
+ 
 :root{
   --purple:#a78bfa;
   --pink:#f9a8d4;
@@ -26,9 +32,9 @@
   --card:#ffffff;
   --soft-shadow: 0 20px 60px -15px rgba(99,102,241,0.25), 0 8px 24px -8px rgba(236,72,153,0.15);
 }
-
+ 
 html,body{height:100%;font-family:'Inter',sans-serif;color:var(--ink)}
-
+ 
 body{
   min-height:100vh;
   background:
@@ -39,9 +45,9 @@ body{
     linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
   background-attachment:fixed;
 }
-
+ 
 .scene{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-
+ 
 .card{
   width:100%;max-width:460px;
   background:var(--card);
@@ -52,14 +58,14 @@ body{
   animation:cardRise 0.6s cubic-bezier(0.16,1,0.3,1) both;
 }
 @keyframes cardRise{from{opacity:0;transform:translateY(24px) scale(0.97)}to{opacity:1;transform:none}}
-
+ 
 .hbar{
   display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px;
   font-size:11px;color:var(--muted);letter-spacing:0.14em;font-weight:600;text-transform:uppercase;
 }
 .hbar-dot{width:6px;height:6px;border-radius:50%;background:var(--indigo);animation:blip 1.8s ease-in-out infinite}
 @keyframes blip{0%,100%{opacity:1}50%{opacity:0.3}}
-
+ 
 .shield-area{display:flex;justify-content:center;margin-bottom:22px}
 .ring-outer{
   width:96px;height:96px;border-radius:26px;
@@ -71,19 +77,19 @@ body{
 }
 @keyframes ringPulse{0%,100%{box-shadow:0 0 0 8px rgba(167,139,250,0.08)}50%{box-shadow:0 0 0 14px rgba(167,139,250,0.14)}}
 .shield-svg{width:44px;height:44px;filter:drop-shadow(0 4px 10px rgba(99,102,241,0.35))}
-
+ 
 .title{
   text-align:center;font-family:'Baloo 2',sans-serif;
   font-size:26px;font-weight:800;letter-spacing:0.01em;
   color:#312e81;margin-bottom:8px;
 }
 .title span{color:var(--indigo)}
-
+ 
 .subtitle{
   text-align:center;font-size:14px;color:var(--muted);
   margin-bottom:26px;line-height:1.5;
 }
-
+ 
 .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
 .badge{
   display:flex;align-items:center;gap:6px;padding:6px 14px;
@@ -96,7 +102,7 @@ body{
 .badge:nth-child(2){animation-delay:0.08s}.badge:nth-child(3){animation-delay:0.16s}
 @keyframes badgeFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .badge-pip{width:5px;height:5px;border-radius:50%;background:var(--indigo)}
-
+ 
 #progressWrap{display:none;flex-direction:column;align-items:center;gap:16px;padding:16px 0}
 .spinner{
   width:44px;height:44px;border-radius:50%;
@@ -105,10 +111,10 @@ body{
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .progress-label{font-size:13px;color:var(--muted);font-weight:600;}
-
+ 
 #successWrap{display:none;flex-direction:column;align-items:center;gap:12px;padding:16px 0 4px;animation:successIn 0.5s ease both}
 @keyframes successIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-
+ 
 .s-icon{
   width:68px;height:68px;border-radius:50%;
   background:linear-gradient(145deg,#d1fae5,#ecfdf5);
@@ -117,20 +123,20 @@ body{
   font-size:28px;color:#059669;
   box-shadow:0 8px 20px -6px rgba(16,185,129,0.4);
 }
-
+ 
 .s-title{font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:700;color:#065f46}
 .s-sub{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0.04em}
-
+ 
 .redir-track{width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px}
 .redir-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--indigo),#a78bfa);animation:redirAnim 1.1s linear 0.1s forwards}
 @keyframes redirAnim{to{width:100%}}
-
+ 
 .redir-pill{
   width:100%;text-align:center;padding:12px 16px;margin-top:6px;
   background:#d1fae5;border:1px solid #6ee7b7;border-radius:999px;
   color:#059669;font-size:14px;font-weight:700;letter-spacing:0.01em;
 }
-
+ 
 .footer{
   display:flex;align-items:center;justify-content:center;gap:8px;
   border-top:1px solid #f1f5f9;padding-top:16px;margin-top:24px;
@@ -138,7 +144,7 @@ body{
 }
 .footer em{color:#6366f1;font-style:normal;font-weight:700}
 .footer-sep{color:#e2e8f0}
-
+ 
 /* ── Cloudflare Turnstile ── */
 .turnstile-wrap{
   display:flex;flex-direction:column;align-items:center;gap:12px;
@@ -154,24 +160,7 @@ body{
 .turnstile-status{font-size:12px;color:var(--muted);font-weight:600;transition:color 0.3s;font-variant:small-caps;letter-spacing:0.03em}
 .turnstile-status.success{color:#059669}
 .turnstile-status.error{color:#e11d48}
-
-/* ── Continue button + sponsor note ── */
-.btn-continue{
-  width:100%;margin-top:8px;padding:14px 20px;border:none;border-radius:999px;
-  background:linear-gradient(135deg,var(--indigo),#a78bfa);color:#fff;
-  font-size:15px;font-weight:700;letter-spacing:0.02em;cursor:pointer;
-  transition:transform 0.15s, box-shadow 0.15s;
-  box-shadow:0 10px 24px -6px rgba(99,102,241,0.5);
-}
-.btn-continue:hover{transform:translateY(-1px);box-shadow:0 14px 28px -6px rgba(99,102,241,0.55)}
-.btn-continue:disabled{opacity:0.7;cursor:default;transform:none}
-.sponsor-note{font-size:11px;color:#94a3b8;text-align:center;line-height:1.5;margin-top:2px}
-
-/* ── Ad slot (Monetag) ── */
-#adSlot{width:100%;display:flex;justify-content:center;align-items:center;margin-top:10px;min-height:0}
-#adSlot:empty{display:none}
-#adSlot > *{max-width:100%}
-
+ 
 /* ── Error State ── */
 #errorWrap{display:none;flex-direction:column;align-items:center;gap:14px;padding:16px 0 4px}
 .err-icon{
@@ -195,15 +184,15 @@ body{
 </style>
 </head>
 <body>
-
+ 
 <div class="scene">
   <div class="card">
-
+ 
     <div class="hbar">
       <div class="hbar-dot"></div>
       VM-MRX PROTECTION
     </div>
-
+ 
     <div class="shield-area">
       <div class="ring-outer">
         <svg class="shield-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -219,10 +208,10 @@ body{
         </svg>
       </div>
     </div>
-
+ 
     <div class="title">Verification <span>Required</span></div>
     <div class="subtitle">We just need to confirm you're human before continuing.</div>
-
+ 
     <!-- INITIAL STATE (Turnstile) -->
     <div id="initialState">
       <div class="turnstile-wrap">
@@ -238,24 +227,21 @@ body{
         <div class="turnstile-status" id="cfStatus">Verifying automatically...</div>
       </div>
     </div>
-
+ 
     <!-- PROGRESS STATE -->
     <div id="progressWrap">
       <div class="spinner"></div>
       <div class="progress-label" id="pLabel">Preparing your link...</div>
     </div>
-
+ 
     <!-- SUCCESS STATE -->
     <div id="successWrap">
       <div class="s-icon">&#10003;</div>
       <div class="s-title">Verified!</div>
       <div class="s-sub">Your secure connection is established.</div>
-      <button class="btn-continue" id="continueBtn" type="button">Continue &rarr;</button>
-      <div class="sponsor-note" id="sponsorNote" style="display:none">Continuing opens a sponsor page in a new tab, and this tab takes you to your link.</div>
-      <!-- MONETAG BANNER SLOT: agar Monetag ka banner/native code mila hai to uska HTML yahan paste karo. Push / Vignette / In-Page ke liye iski zaroorat nahi, MONETAG_CONFIG use hoga. -->
-      <div id="adSlot"></div>
+      <div class="redir-pill" id="redirPill">Auto-redirecting in 5s...</div>
     </div>
-
+ 
     <!-- ERROR STATE -->
     <div id="errorWrap">
       <div class="err-icon">&#10007;</div>
@@ -263,7 +249,7 @@ body{
       <div class="err-msg" id="errMsg">Something went wrong. Please try again.</div>
       <button class="btn-retry" onclick="retryVerification()">&#8635; Retry</button>
     </div>
-
+ 
     <div class="footer">
       <em>VM-MRX</em>
       <span class="footer-sep">•</span>
@@ -273,7 +259,7 @@ body{
     </div>
   </div>
 </div>
-
+ 
 <script>
 /* ── Protected-link session flow ──
    The destination token is NEVER sent to the browser.
@@ -285,16 +271,16 @@ function getCodeFromURL(){
   const m = window.location.pathname.match(/^\/s\/([A-Za-z0-9_-]{4,32})\/?$/);
   return m ? m[1] : null;
 }
-
+ 
 function getTokenFromURL(){
   // Kept only for stats compatibility. Never exposes the real token.
   return getCodeFromURL();
 }
-
+ 
 async function resolveSession(){
   const code = getCodeFromURL();
   if(!code) return null;
-
+ 
   const res = await fetch('/api/resolve', {
     method:'POST',
     credentials:'same-origin',
@@ -302,14 +288,14 @@ async function resolveSession(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({code})
   });
-
+ 
   const data = await res.json().catch(()=>({}));
   if(!res.ok || !data.sessionId) {
     throw new Error(data.error || 'Protected link not found or expired.');
   }
   return data.sessionId;
 }
-
+ 
 function trackEvent(type, code){
   try{
     fetch('/api/track', {
@@ -319,79 +305,36 @@ function trackEvent(type, code){
     }).catch(()=>{});
   }catch(e){}
 }
-
+ 
 (function(){
   const code = getCodeFromURL();
   if(code) trackEvent('view', code);
 })();
-
-/* ── Monetag config ──
-   Monetag ke tag se src aur data-zone yahan bharo. src khali hai to koi ad load nahi hoga.
-   Tag sirf verification PASS hone ke baad load hota hai, taaki ads sirf real users ko dikhein
-   aur Turnstile challenge ke saath koi clash na ho. */
-const MONETAG_CONFIG = {
-  src:  "https://al5sm.com/tag.min.js",   // OnClick tag
-  zone: "12143065"
-};
-
-/* SmartLink (Direct Link) URL from Monetag dashboard.
-   Continue button dabane par ye naye tab me khulta hai (sirf ek baar per browser session),
-   aur current tab asli destination par chala jata hai.
-   Khali chhodoge to button seedha redirect karega, koi ad nahi. */
-const SMARTLINK_URL = "";   // e.g. "https://XXXX/4/123456"
-const AD_SEEN_KEY   = "vg_ad_seen";
-
-function adAlreadySeen(){
-  try{ return sessionStorage.getItem(AD_SEEN_KEY) === "1"; }catch(e){ return false; }
-}
-function markAdSeen(){
-  try{ sessionStorage.setItem(AD_SEEN_KEY, "1"); }catch(e){}
-}
-function isSafeAdUrl(u){
-  try{ const x = new URL(u); return x.protocol === "https:" || x.protocol === "http:"; }
-  catch(e){ return false; }
-}
-
-let _adLoaded = false;
-function loadMonetag(){
-  if(_adLoaded || !MONETAG_CONFIG.src) return;
-  _adLoaded = true;
-  // Head wala verification snippet already tag laga chuka ho to dobara load mat karo.
-  if(document.querySelector('script[src*="al5sm.com/tag.min.js"]')) return;
-  try{
-    const s = document.createElement('script');
-    s.src = MONETAG_CONFIG.src;
-    s.async = true;
-    if(MONETAG_CONFIG.zone) s.setAttribute('data-zone', MONETAG_CONFIG.zone);
-    s.setAttribute('data-cfasync','false');
-    document.body.appendChild(s);
-  }catch(e){ console.error('[VM-MRX] ad load failed', e); }
-}
-
+ 
 function showState(state){
   document.getElementById('initialState').style.display   = state==='initial'   ? 'block' : 'none';
   document.getElementById('progressWrap').style.display   = state==='progress'  ? 'flex'  : 'none';
   document.getElementById('successWrap').style.display    = state==='success'   ? 'flex'  : 'none';
   document.getElementById('errorWrap').style.display      = state==='error'     ? 'flex'  : 'none';
 }
-
+ 
 function showError(msg){
   document.getElementById('errMsg').textContent = msg || 'Something went wrong. Please try again.';
   showState('error');
 }
-
+ 
 function retryVerification(){ window.location.reload(); }
-
+ 
 let _verifying = false;
-
+ 
 window.onTurnstileSuccess = async function(cfToken){
   if(_verifying) return;
   _verifying = true;
-
+ 
   const statusEl = document.getElementById('cfStatus');
   statusEl.textContent = '✓ Human verified! Creating secure redirect...';
   statusEl.classList.add('success');
-
+ 
   let sessionId;
   try{
     sessionId = await resolveSession();
@@ -400,7 +343,7 @@ window.onTurnstileSuccess = async function(cfToken){
     showError(err.message || 'Could not create a verification session.');
     return;
   }
-
+ 
   try{
     const res = await fetch('/api/verify', {
       method:'POST',
@@ -409,12 +352,12 @@ window.onTurnstileSuccess = async function(cfToken){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({sessionId, cfToken})
     });
-
+ 
     const data = await res.json().catch(()=>({}));
     if(!res.ok || !data.success || !data.redirect){
       throw new Error(data.error || 'Verification failed');
     }
-
+ 
     // Only the internal redirect route is exposed to JavaScript.
     trackEvent('visit', getCodeFromURL());
     startVerify(data.redirect);
@@ -427,14 +370,14 @@ window.onTurnstileSuccess = async function(cfToken){
     setTimeout(()=>showError(err.message || 'Verification failed. Please try again.'), 800);
   }
 };
-
+ 
 window.onTurnstileError = function(){
   const s=document.getElementById('cfStatus');
   s.textContent='✗ Verification error. Please try again.';
   s.classList.add('error');
   _verifying=false;
 };
-
+ 
 window.onTurnstileExpired = function(){
   const s=document.getElementById('cfStatus');
   s.textContent='⚠ Challenge expired. Refreshing widget...';
@@ -443,7 +386,7 @@ window.onTurnstileExpired = function(){
   _verifying=false;
   if(typeof turnstile!=='undefined') turnstile.reset();
 };
-
+ 
 function startVerify(redirectPath){
   if(!redirectPath){
     showError('Secure redirect is unavailable.');
@@ -453,48 +396,26 @@ function startVerify(redirectPath){
   document.getElementById('pLabel').textContent='Redirecting...';
   showSuccess(redirectPath);
 }
-
+ 
 function showSuccess(redirectPath){
   setTimeout(()=>{
     showState('success');
-    loadMonetag();
-
-    const btn  = document.getElementById('continueBtn');
-    const note = document.getElementById('sponsorNote');
-
-    const smartOK  = !!SMARTLINK_URL && isSafeAdUrl(SMARTLINK_URL) && !adAlreadySeen();
-    const onclickOK = !smartOK && !!MONETAG_CONFIG.src;   // OnClick tag ko ek real user click chahiye
-
-    // Mode 3: koi ad configured nahi -> purana quick auto-redirect
-    if(!smartOK && !onclickOK){
-      btn.disabled = true;
-      btn.textContent = 'Redirecting...';
-      setTimeout(()=>{ window.location.replace(redirectPath); }, 1500);
-      return;
-    }
-
-    note.textContent = smartOK
-      ? 'Continuing opens a sponsor page in a new tab, and this tab takes you to your link.'
-      : 'Continuing may open a sponsor page in a new tab, and this tab takes you to your link.';
-    note.style.display = 'block';
-
-    let clicked = false;
-    btn.addEventListener('click', ()=>{
-      if(clicked) return;
-      clicked = true;
-      btn.disabled = true;
-      btn.textContent = 'Redirecting...';
-
-      // Mode 1: SmartLink -> window.open click handler ke andar hi hona chahiye
-      if(smartOK){
-        markAdSeen();
-        try{ window.open(SMARTLINK_URL, '_blank', 'noopener'); }catch(e){}
-      }
-      // Mode 2: OnClick -> Monetag ka tag isi click ko sunta hai, hum bas thoda ruk ke redirect karte hain
-      setTimeout(()=>{ window.location.replace(redirectPath); }, smartOK ? 300 : 600);
-    });
+ 
+    const pill=document.getElementById('redirPill');
+    let secs=5;
+    pill.textContent='Auto-redirecting in '+secs+'s...';
+ 
+    const timer=setInterval(()=>{
+      secs--;
+      if(secs>0) pill.textContent='Auto-redirecting in '+secs+'s...';
+      else { clearInterval(timer); pill.textContent='Redirecting now...'; }
+    },1000);
+ 
+    setTimeout(()=>{ window.location.replace(redirectPath); },5000);
   },250);
 }
 </script>
 </body>
 </html>
+ 
+Claude finished the response
